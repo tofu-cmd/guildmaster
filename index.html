@@ -195,6 +195,39 @@ i.good{background:var(--good)} i.warn{background:var(--warn)} i.bad{background:v
 .opt small{color:var(--mute);white-space:nowrap}
 .opt small.safe{color:var(--good)} .opt small.risky{color:var(--bad)} .opt small.even{color:var(--warn)}
 .opt small.need{color:var(--mute)}
+/* detailed hero cards + founding screen */
+.hero.full{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:12px}
+.hhead{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+.spr.big{width:58px;height:58px;position:relative}
+.lvl{position:absolute;right:-6px;bottom:-6px;background:var(--brass);color:var(--brass-ink);font-weight:700;font-size:11px;border-radius:99px;padding:0 6px;line-height:1.5}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px}
+.srow{display:grid;grid-template-columns:30px 1fr 28px;gap:6px;align-items:center;font-size:12px;color:var(--mute);letter-spacing:.05em}
+.srow b{color:var(--fg);font-size:14px;text-align:right}
+.sbar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.sbar i{display:block;height:100%;background:var(--brass)}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.meters small{font-size:11px;color:var(--mute);display:block}
+.hfacts{font-size:13px;color:var(--mute)}
+.hfoot{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.hdet{display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:var(--panel2);border-radius:6px}
+.tdesc{margin:0;padding-left:18px;font-size:13px;display:flex;flex-direction:column;gap:2px}
+.gname{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--brass);font-weight:700}
+.create h2{font-size:34px;color:var(--brass)}
+.create{padding-block:16px}
+.slot{gap:10px}
+.in{background:var(--panel2);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:7px 10px;font:inherit;width:100%;min-width:0}
+.in:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mute)}
+.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--mute);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chipb{background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:4px 12px;font-weight:500}
+.chipb:hover{border-color:var(--brass)}
+.chipb.on{background:var(--brass);color:var(--brass-ink);border-color:var(--brass);font-weight:700}
+.looks{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.looks span{width:42px;font-size:12px;color:var(--mute)}
+.sw{width:24px;height:24px;border-radius:50%;border:2px solid var(--line);padding:0}
+.sw.on{border-color:var(--fg);box-shadow:0 0 0 2px var(--brass)}
+.opt.sel{border-color:var(--brass);background:#2a2415}
 /* live clock */
 .speed{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .speed button{background:var(--panel2);border:0;border-right:1px solid var(--line);padding:6px 11px;font-weight:700;color:var(--mute)}
@@ -427,7 +460,7 @@ const pick=a=>a[Math.floor(Math.random()*a.length)];
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let S=null,M=null;
-let ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[]};
+let ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{}};
 const uid=()=>S.nid++;
 const perk=id=>(M.perks[id]||0);
 
@@ -451,13 +484,18 @@ const WEAPON={
   bard:[...line(10,4,6,'t'),[10,7,'x'],[10,8,'x'],[9,8,'x'],[9,7,'x']]
 };
 const spriteCache={};
-function sprite(cls,tier,size){
-  const key=cls+tier+size;
+const SKINS=['#f1cfae','#e0b48a','#bd8a5e','#7d5438'];
+const CLOTHS=[null,'#b0463a','#5b6fd1','#4c8a5b','#6a4a8a','#8a8f98'];
+const HAIRS=[null,'#2b2336','#6b4a2b','#c9a24b','#b0463a','#d9d9d9'];
+const SKIN_N=['Fair','Tan','Brown','Deep'];
+function sprite(cls,tier,size,look){
+  const lk=look||{};
+  const key=`${cls}${tier}${size}-${lk.skin||0}-${lk.cloth||0}-${lk.hair||0}`;
   if(spriteCache[key])return spriteCache[key];
   const g=BASE.map(r=>r.split(''));
   WEAPON[cls].forEach(([x,y,k])=>{g[y][x]=k});
   const c=CPAL[cls];
-  const pal={h:c.h,b:c.b,s:'#e8c39e',e:'#16181d',d:TCOL[tier],l:'#3a3a48',w:'#cfd6dc',t:'#8a6a3a',o:'#7ad7ff',x:'#d4aa4f',k:'#6b4a2b'};
+  const pal={h:HAIRS[lk.hair||0]||c.h,b:CLOTHS[lk.cloth||0]||c.b,s:SKINS[lk.skin||0],e:'#16181d',d:TCOL[tier],l:'#3a3a48',w:'#cfd6dc',t:'#8a6a3a',o:'#7ad7ff',x:'#d4aa4f',k:'#6b4a2b'};
   return spriteCache[key]=pix(g.map(r=>r.join('')),pal,size,11,12);
 }
 const ICONS={
@@ -510,6 +548,10 @@ function pickQuirks(tier){
   take(neg,tier===4?(Math.random()<.5?1:0):1);
   return out;
 }
+const randLook=()=>({skin:ri(0,3),cloth:Math.random()<.6?0:ri(1,5),hair:Math.random()<.4?0:ri(1,5)});
+function heroObj(o){
+  return {id:uid(),name:o.name,cls:o.cls,tier:o.tier,level:1,xp:0,base:o.base,injured:0,rest:0,party:null,wins:0,quests:0,rep:0,story:[],pend:false,stress:0,quirks:o.quirks,affl:null,virtue:null,look:o.look,wage:o.wage};
+}
 function makeHero(tier,cls){
   cls=cls||pick(availableClasses());
   const base={};
@@ -518,7 +560,49 @@ function makeHero(tier,cls){
   const quirks=pickQuirks(tier);
   let wage=TIERS[tier].wage*rnd(.9,1.15);
   quirks.forEach(id=>{wage*=QUIRKS[id].fx.wage||1});
-  return {id:uid(),name,cls,tier,level:1,xp:0,base,injured:0,rest:0,party:null,wins:0,quests:0,rep:0,story:[],pend:false,stress:0,quirks,affl:null,virtue:null,wage:Math.max(1,Math.round(wage))};
+  return heroObj({name,cls,tier,base,quirks,look:randLook(),wage:Math.max(1,Math.round(wage))});
+}
+
+/* ---------- founding the guild: the player builds the starting party ---------- */
+const GNAMES=['The Ragged Lantern','The Iron Hearth','The Gilded Boot','The Last Candle','The Broken Wheel','The Silver Stag'];
+const topStat=cls=>STATS.slice().sort((a,b)=>CLASSES[cls].base[b]-CLASSES[cls].base[a])[0];
+const rollBase=(cls,tier)=>{const b={};STATS.forEach(s=>b[s]=Math.max(1,Math.round(CLASSES[cls].base[s]*TIERS[tier].mult*rnd(.9,1.1))));return b};
+const shuffled=a=>[...a].sort(()=>Math.random()-.5);
+function rollTraits(s){
+  const keys=Object.keys(QUIRKS);
+  s.posOpts=shuffled(keys.filter(k=>QUIRKS[k].pos)).slice(0,3);
+  s.negOpts=shuffled(keys.filter(k=>!QUIRKS[k].pos)).slice(0,2);
+  s.pos=s.posOpts[0];s.neg=s.negOpts[0];
+}
+function newSlot(cls,tier,used){
+  let name;do{name=pick(FIRST)}while(used.includes(name));
+  const s={tier,cls,name,focus:topStat(cls),look:randLook(),base:rollBase(cls,tier)};
+  rollTraits(s);return s;
+}
+const slotStats=s=>{const b={...s.base};b[s.focus]+=Math.round(3*TIERS[s.tier].mult);return b};
+function initCreate(){
+  const avail=availableClasses();
+  const cls=['cleric',...shuffled(avail.filter(c=>c!=='cleric')).slice(0,2)];
+  const used=[],slots=[];
+  cls.forEach(c=>{const s=newSlot(c,0,used);used.push(s.name);slots.push(s)});
+  if(perk('vet')){const s=newSlot(pick(avail),1,used);s.vet=true;slots.push(s)}
+  ui.create={gname:pick(GNAMES),pname:S.parties[0].name,slots,err:''};
+}
+function foundGuild(){
+  const c=ui.create,names=c.slots.map(s=>(s.name||'').trim());
+  if(names.some(n=>!n)){c.err='Every hero needs a name.';return}
+  S.guildName=(c.gname||'').trim()||GNAMES[0];
+  S.parties[0].name=(c.pname||'').trim()||S.parties[0].name;
+  c.slots.forEach((s,i)=>{
+    const quirks=[s.pos,s.neg];
+    let wage=TIERS[s.tier].wage;quirks.forEach(id=>{wage*=QUIRKS[id].fx.wage||1});
+    S.heroes.push(heroObj({name:names[i],cls:s.cls,tier:s.tier,base:slotStats(s),quirks,look:s.look,wage:Math.max(1,Math.round(wage))}));
+  });
+  S.heroes.slice(0,4).forEach(h=>{h.party=S.parties[0].id;S.parties[0].members.push(h.id)});
+  S.setup=false;
+  S.log.unshift({d:1,t:`${S.guildName} opens its doors with ${S.heroes.map(h=>h.name.split(' ')[0]).join(', ')}. Era: ${era().n}.`});
+  ui.create=null;
+  if(ui.introAfter){ui.modal={type:'intro'};ui.introAfter=false}
 }
 function pickTier(){
   const cap=TIER_CAP[rank()],w=[50,30,15,8,3].slice(0,cap+1);
@@ -622,13 +706,10 @@ function newGame(){
     stats:{won:0,lost:0,fallen:0},hardcore:true,over:false,nextCrisis:ri(12,18),vic:0,paid:false,nid:1,
     eraId:pick(ERAS).id,boss:ri(0,BOSSES.length-1),bossSpawned:false,bld:{chapel:perk('chapel'),barracks:0,infirmary:0,training:0}};
   S.rankSeen=rank();
-  const cls=[...availableClasses()].sort(()=>Math.random()-.5).slice(0,3);
-  cls.forEach(c=>S.heroes.push(makeHero(0,c)));
-  if(perk('vet'))S.heroes.push(makeHero(1));
+  S.setup=true;
   ensureParties();
-  S.heroes.slice(0,4).forEach(h=>{h.party=S.parties[0].id;S.parties[0].members.push(h.id)});
   fillBoard();refreshTavern(5);
-  S.log.unshift({d:1,t:`You open the doors of a ragged little tavern and call it a guild. Era: ${era().n}.`});
+  initCreate();
 }
 function gainRenown(n,ev){
   S.renown=Math.max(RT[rank()],S.renown+n);
@@ -897,14 +978,45 @@ function progress(p){const m=p.mission,t=m.total||m.quest.days;return clamp((t-m
 const oddsClass=c=>c>=.7?'good':c>=.4?'warn':'bad';
 function oddsBar(c){const p=Math.round(c*100),k=oddsClass(c);return `<div class="odds"><div class="obar"><i class="${k}" style="width:${p}%"></i></div><b class="${k}">${p}%</b></div>`}
 const stressCls=s=>s>=75?'hi':s>=50?'mid':'';
-function heroCard(h,extra,compact){
+function statGrid(h){
+  const vals=STATS.map(s=>stat(h,s)),mx=Math.max(...vals,1);
+  return `<div class="sgrid">${STATS.map((s,i)=>`<div class="srow" title="${SL[s]}"><span>${SS[s]}</span><div class="sbar"><i style="width:${vals[i]/mx*100}%"></i></div><b>${vals[i]}</b></div>`).join('')}</div>`;
+}
+function fullHeroCard(h,extra,open,pill,tags){
+  const xpNeed=40*h.level,rt=repTier(h.rep||0),exp=open||(ui.exp&&ui.exp[h.id]),lost=(h.quests||0)-h.wins;
+  const det=exp?`<div class="hdet">
+      <div class="cinfo"><b>${CLASSES[h.cls].n}:</b> ${CLASSES[h.cls].role}</div>
+      <ul class="tdesc">${Q(h).map(x=>`<li><b>${x.n}.</b> ${x.d}</li>`).join('')}${h.affl?`<li><b class="bad">${AFFL[h.affl].n}.</b> ${AFFL[h.affl].d}</li>`:''}${h.virtue?`<li><b class="good">${VIRT[h.virtue].n}.</b> ${VIRT[h.virtue].d}</li>`:''}</ul>
+      <div class="cinfo">Backstory: ${(h.story||[]).length?(h.story.map(s=>CHAPTERS[s.c].o[s.o].l).join(', ')):'nothing written yet'} (${(h.story||[]).length}/${CHAPTERS.length} chapters). Reputation ${(h.rep||0)>0?'+':''}${h.rep||0}.</div>
+    </div>`:'';
+  return `<div class="hero full">
+    <div class="hhead">
+      <div class="spr big t${h.tier}" title="${CLASSES[h.cls].n}">${sprite(h.cls,h.tier,44,h.look)}<span class="lvl" title="Level">${h.level}</span></div>
+      <div class="hmain"><div class="hname t${h.tier}">${esc(h.name)}</div>
+        <div class="hsub">${TIERS[h.tier].n} ${CLASSES[h.cls].n}${(h.story||[]).length?` · ${alignTitle(h)}`:''}</div>
+        <div class="rep"><b class="${rt.cls}">${rt.n}</b> (${(h.rep||0)>0?'+':''}${h.rep||0})</div></div>
+      <div class="hpill">${pill}</div>
+    </div>
+    ${statGrid(h)}
+    <div class="tags">${tags.join('')}</div>
+    <div class="meters">
+      <div><small>Stress ${h.stress}/100</small><div class="stress ${stressCls(h.stress)}"><i style="width:${h.stress}%"></i></div></div>
+      <div><small>${h.level<12?`XP ${h.xp}/${xpNeed}`:'Max level'}</small><div class="xp"><i style="width:${h.level<12?Math.min(100,h.xp/xpNeed*100):100}%"></i></div></div>
+    </div>
+    <div class="hfacts">${h.wage}g/day · ${h.quests||0} quest${(h.quests||0)===1?'':'s'} (${h.wins} won, ${lost} lost)</div>
+    ${det}
+    <div class="hfoot">${open?'':`<button class="btn small" data-act="expand" data-a="${h.id}">${exp?'Hide details':'Details'}</button>`}${extra||''}</div>
+  </div>`;
+}
+function heroCard(h,extra,compact,open){
   const st=status(h),xpNeed=40*h.level;
   const pill=st==='injured'?`<span class="pill bad">Injured ${h.injured}d</span>`:st==='resting'?`<span class="pill warn">Resting</span>`:st==='questing'?`<span class="pill warn">On quest</span>`:'';
   const tags=Q(h).map(x=>`<span class="tag ${x.story?'story':x.pos?'pos':'neg'}" title="${esc(x.d)}">${x.n}</span>`);
   if(h.affl)tags.push(`<span class="tag aff" title="${esc(AFFL[h.affl].d)}">${AFFL[h.affl].n}</span>`);
   if(h.virtue)tags.push(`<span class="tag vir" title="${esc(VIRT[h.virtue].d)}">${VIRT[h.virtue].n}</span>`);
-  return `<div class="hero${compact?' compact':''}">
-    <div class="spr t${h.tier}" title="${CLASSES[h.cls].n}">${sprite(h.cls,h.tier,34)}</div>
+  if(!compact)return fullHeroCard(h,extra,open,pill,tags);
+  return `<div class="hero compact">
+    <div class="spr t${h.tier}" title="${CLASSES[h.cls].n}">${sprite(h.cls,h.tier,34,h.look)}</div>
     <div class="hmain">
       <div class="hname t${h.tier}">${esc(h.name)}</div>
       <div class="hsub">${TIERS[h.tier].n} ${CLASSES[h.cls].n} · Lv ${h.level} · ${h.wage}g/day</div>
@@ -942,7 +1054,7 @@ function missionCard(p){
   return `<div class="card mission${q.boss?' boss':''}${q.crisis?' crisis':''}">
     <div class="qtop"><div style="min-width:0"><div class="qtype">${esc(p.name)} · day ${e} of ${t}</div><div class="qtitle">${esc(q.title)}</div>${q.crisis?'<div class="cinfo bad">The guild’s survival depends on this quest.</div>':''}</div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><div class="dlabel">Danger ${q.d}</div>${mood}</div></div>
     <div class="track"><div class="rail"></div><div class="fill" style="width:${now}%" data-pid="${p.id}"></div>${nodes}
-      <div class="runner" style="left:${now}%" data-pid="${p.id}">${ms.map(h=>sprite(h.cls,h.tier,26)).join('')}</div></div>
+      <div class="runner" style="left:${now}%" data-pid="${p.id}">${ms.map(h=>sprite(h.cls,h.tier,26,h.look)).join('')}</div></div>
     <div class="mstress">${ms.map(h=>`<div><small>${esc(h.name.split(' ')[0])} ${h.stress}</small><div class="stress ${stressCls(h.stress)}"><i style="width:${h.stress}%"></i></div></div>`).join('')}</div>
     <div class="mlog"><div>${icon('flag',18)}<span><b>Day 0</b> ${esc(p.name)} sets out for ${esc(q.place)}.</span></div>${log}</div>
   </div>`;
@@ -973,7 +1085,7 @@ function renderRank(){
     unlock=`<span>Rank ${RANKS[r+1].l} unlocks: <b>${bits.join(', ')}</b></span>`;
   }
   return `<section class="rank"><div class="rletter">${RANKS[r].l}</div>
-    <div><div class="rname">${RANKS[r].n}</div>
+    <div>${S.guildName?`<div class="gname">${esc(S.guildName)}</div>`:''}<div class="rname">${RANKS[r].n}</div>
     <div class="meter" title="Renown"><i style="width:${pct}%"></i></div>
     <div class="cinfo">${S.renown}${next?` / ${next}`:''} renown${next?'':' (max rank)'}</div></div>
     <div class="rinfo"><span class="era" title="${esc(era().d)}">Era: <b>${era().n}</b></span><span>Quest danger now: <b>${dmin}–${dmax}</b></span><span>Best heroes in tavern: <b>${TIERS[TIER_CAP[r]].n}</b></span><span>Roster: <b>${S.heroes.length}/${rosterCap()}</b></span><span>Record: <b>${S.stats.won}W ${S.stats.lost}L</b></span>${unlock}</div></section>`;
@@ -1096,14 +1208,14 @@ function renderModal(){
     const o=S.offers[0],h=o.hero,full=S.heroes.length>=rosterCap();
     body=`<h2>A visitor at the door</h2>
       <p><b class="hname t${h.tier}" style="display:inline">${esc(h.name)}</b>, a ${TIERS[h.tier].n} ${CLASSES[h.cls].n}, ${esc(o.why)}</p>
-      ${heroCard(h,'',true)}
+      ${heroCard(h,'',false,true)}
       ${full?'<p class="bad">Your roster is full. Release someone from the Roster tab first, or turn them away.</p>':''}
       <div class="mact"><button class="btn" data-act="decline">Turn away</button><button class="btn primary" data-act="accept" ${full?'disabled':''}>Welcome them</button></div>`;dismiss=false;
   }else if(m.type==='dossier'){
     const h=hero(m.hid);
     if(!h){ui.modal=null;return ''}
     const rt=repTier(h.rep||0);
-    body=`<h2>${esc(h.name)}</h2>${heroCard(h,'',true)}
+    body=`<h2>${esc(h.name)}</h2>${heroCard(h,'',false,true)}
       <p class="cinfo">Reputation: <b class="${rt.cls}">${rt.n}</b> (${(h.rep||0)>0?'+':''}${h.rep||0}) · Leaning: <b>${alignTitle(h)}</b> · ${h.quests||0} quests finished. Wins raise reputation and losses lower it.</p>
       <div class="stack">${CHAPTERS.map((C,i)=>{
         const s=h.story[i];
@@ -1163,7 +1275,58 @@ function renderModal(){
   }
   return `<div class="back" ${dismiss?'data-act="backdrop"':''}><div class="modal${dark?' dark':''}" role="dialog" aria-modal="true">${body}</div></div>`;
 }
+function renderCreate(){
+  const c=ui.create,avail=availableClasses();
+  const sw=(i,k,list,sel,def)=>list.map((col,n)=>`<button class="sw${(sel||0)===n?' on':''}" style="background:${col||def}" data-act="clook" data-a="${i}" data-b="${k}:${n}" aria-label="${k} ${n+1}"></button>`).join('');
+  const slots=c.slots.map((s,i)=>{
+    const st=slotStats(s),mx=Math.max(...STATS.map(k=>st[k]),1);
+    let wage=TIERS[s.tier].wage;[s.pos,s.neg].forEach(id=>{wage*=QUIRKS[id].fx.wage||1});wage=Math.max(1,Math.round(wage));
+    return `<div class="panel slot">
+      <div class="hhead">
+        <div class="spr big t${s.tier}">${sprite(s.cls,s.tier,52,s.look)}</div>
+        <div class="hmain" style="min-width:0"><div class="cinfo">${s.vet?'Veteran recruit (Uncommon)':`Hero ${i+1}`}</div>
+          <input class="in" id="cn${i}" data-f="name" data-a="${i}" maxlength="16" value="${esc(s.name)}" aria-label="Hero ${i+1} name"></div>
+        <button class="btn small" data-act="cname" data-a="${i}" title="Random name">Random</button>
+      </div>
+      <div class="lbl">Class</div>
+      <div class="chips">${avail.map(k=>`<button class="chipb${s.cls===k?' on':''}" data-act="ccls" data-a="${i}" data-b="${k}">${CLASSES[k].n}</button>`).join('')}</div>
+      <div class="cinfo">${CLASSES[s.cls].role}</div>
+      <div class="lbl">Focus (+${Math.round(3*TIERS[s.tier].mult)} to one stat)</div>
+      <div class="chips">${STATS.map(k=>`<button class="chipb${s.focus===k?' on':''}" data-act="cfocus" data-a="${i}" data-b="${k}">${SL[k]}</button>`).join('')}</div>
+      <div class="sgrid">${STATS.map(k=>`<div class="srow"><span>${SS[k]}</span><div class="sbar"><i style="width:${st[k]/mx*100}%"></i></div><b>${st[k]}</b></div>`).join('')}</div>
+      <div class="lbl">Look</div>
+      <div class="looks"><span>Skin</span>${sw(i,'skin',SKINS,s.look.skin,'')}</div>
+      <div class="looks"><span>Cloth</span>${sw(i,'cloth',CLOTHS,s.look.cloth,CPAL[s.cls].b)}</div>
+      <div class="looks"><span>Hair</span>${sw(i,'hair',HAIRS,s.look.hair,CPAL[s.cls].h)}</div>
+      <div class="lbl">Strength (pick one)</div>
+      <div class="stack">${s.posOpts.map(id=>`<button class="opt${s.pos===id?' sel':''}" data-act="cpos" data-a="${i}" data-b="${id}"><span><b>${QUIRKS[id].n}</b><br><span class="cinfo">${QUIRKS[id].d}</span></span></button>`).join('')}</div>
+      <div class="lbl">Flaw (pick one)</div>
+      <div class="stack">${s.negOpts.map(id=>`<button class="opt${s.neg===id?' sel':''}" data-act="cneg" data-a="${i}" data-b="${id}"><span><b>${QUIRKS[id].n}</b><br><span class="cinfo">${QUIRKS[id].d}</span></span></button>`).join('')}</div>
+      <div class="hfoot"><button class="btn small" data-act="creroll" data-a="${i}">Reroll traits</button><span class="cinfo">Wage ${wage}g/day</span></div>
+    </div>`;
+  }).join('');
+  const hasCleric=c.slots.some(s=>s.cls==='cleric');
+  return `<div class="bar"><div class="logo">Guildmaster</div><button class="btn small" data-act="help">How to play</button></div>
+    <section class="create">
+      <h2>Found your guild</h2>
+      <p class="cinfo">Build your first party. Pick each hero’s class, focus, look, strength and flaw. They start as Common heroes with the same quirks you choose here, so choose a team you want to grow attached to.</p>
+      <div class="grid" style="margin:12px 0">
+        <label class="fld">Guild name<input class="in" id="gname" data-f="gname" maxlength="26" value="${esc(c.gname)}"></label>
+        <label class="fld">First party name<input class="in" id="pname" data-f="pname" maxlength="22" value="${esc(c.pname)}"></label>
+      </div>
+      <div class="grid">${slots}</div>
+      ${hasCleric?'':'<p class="cinfo bad" style="margin-top:12px">No Cleric in this party. Injuries and deaths are twice as likely when quests fail. You can hire one later.</p>'}
+      ${c.err?`<p class="bad">${esc(c.err)}</p>`:''}
+      <div class="mact" style="margin-top:14px"><button class="btn" data-act="crand">Randomize everything</button><button class="btn primary" data-act="cfound">Found the guild</button></div>
+    </section>`;
+}
 function render(){
+  if(S.setup){
+    document.getElementById('app').innerHTML=renderCreate()+renderModal();
+    renderToasts();
+    try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+    return;
+  }
   const y=window.scrollY;
   const tabs=[['quests','Quests',S.board.length],['parties','Parties',S.parties.length],['roster','Roster',S.heroes.length,S.heroes.filter(h=>h.pend).length],['tavern','Tavern',null],['guild','Guild',null]];
   document.getElementById('app').innerHTML=`
@@ -1212,7 +1375,7 @@ let lastT=performance.now();
 function loop(){
   const now=performance.now(),dt=Math.min(250,now-lastT);lastT=now;
   if(!S)return;
-  if(S.over||ui.modal||ui.paused||document.hidden){tickUI();return}
+  if(S.over||S.setup||ui.modal||ui.paused||document.hidden){tickUI();return}
   ui.frac+=dt*ui.speed/DAY_MS;
   if(ui.frac>=1){ui.frac=0;endDay();render()}
   else tickUI();
@@ -1226,6 +1389,16 @@ document.addEventListener('click',e=>{
   const a=el.dataset.a,b=el.dataset.b;
   switch(el.dataset.act){
     case 'tab':ui.tab=a;ui.modal=null;ui.confirm=null;break;
+    case 'expand':ui.exp=ui.exp||{};ui.exp[+a]=!ui.exp[+a];break;
+    case 'cname':{const s=ui.create.slots[+a];s.name=pick(FIRST);break}
+    case 'ccls':{const s=ui.create.slots[+a];s.cls=b;s.base=rollBase(b,s.tier);s.focus=topStat(b);break}
+    case 'cfocus':ui.create.slots[+a].focus=b;break;
+    case 'clook':{const [k,v]=b.split(':');ui.create.slots[+a].look[k]=+v;break}
+    case 'cpos':ui.create.slots[+a].pos=b;break;
+    case 'cneg':ui.create.slots[+a].neg=b;break;
+    case 'creroll':rollTraits(ui.create.slots[+a]);break;
+    case 'crand':{const g=ui.create.gname,pn=ui.create.pname;initCreate();ui.create.gname=g;ui.create.pname=pn;break}
+    case 'cfound':foundGuild();break;
     case 'speed':if(a==='0')ui.paused=true;else{ui.paused=false;ui.speed=+a}break;
     case 'assign':ui.modal={type:'assign',qid:a};break;
     case 'send':{
@@ -1311,7 +1484,7 @@ document.addEventListener('click',e=>{
       if(cost!==undefined&&M.legacy>=cost){M.legacy-=cost;M.perks[a]=perk(a)+1;saveMeta()}
       break;
     }
-    case 'begin':{const first=!M.runs.length;newGame();ui={tab:'quests',modal:first?{type:'intro'}:null,confirm:null,speed:1,paused:true,frac:0,toasts:[]};break}
+    case 'begin':{const first=!M.runs.length;ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{}};newGame();ui.introAfter=first;break}
   }
   if(el.dataset.act!=='release'&&el.dataset.act!=='tab')ui.confirm=null;
   render();
@@ -1330,9 +1503,17 @@ if(loaded){
   S.heroes.forEach(h=>{h.rep=h.rep||0;h.quests=h.quests||0;h.story=h.story||[];h.pend=!!h.pend});
   S.fallen.forEach(f=>{f.title=f.title||'';f.rep=f.rep||'Unknown'});
 }
-if(!loaded){newGame();ui.modal={type:'intro'}}
+if(!loaded){newGame();ui.introAfter=true}
+else if(S.setup){initCreate()}
 else nextModal();
 render();
+document.addEventListener('input',e=>{
+  const f=e.target.dataset&&e.target.dataset.f;
+  if(!f||!ui.create)return;
+  if(f==='gname')ui.create.gname=e.target.value;
+  else if(f==='pname')ui.create.pname=e.target.value;
+  else if(f==='name')ui.create.slots[+e.target.dataset.a].name=e.target.value;
+});
 })();
 </script>
 
