@@ -8,7 +8,8 @@ import { Glyph, AnimatedNumber } from './parts.jsx';
 import HeroCard from './HeroCard.jsx';
 import { motionSetting, saveMotion } from './motion.js';
 import { QuestsTab, MapPanel, QuestCard, MissionCard } from './Quests.jsx';
-import { RosterTab, TavernTab, GuildTab } from './Tabs.jsx';
+import { TavernTab, GuildTab } from './Tabs.jsx';
+import { RosterDashboard } from './Roster.jsx';
 import { PartiesDashboard, partyState } from './Parties.jsx';
 import LedgerTab from './Ledger.jsx';
 import Create from './Create.jsx';
@@ -167,12 +168,12 @@ function RouteDrawer() {
 
 function Drawer() {
   if (!ui.drawer) return null;
-  const tab = { parties: PartiesDashboard, roster: RosterTab, tavern: TavernTab, guild: GuildTab, ledger: LedgerTab }[ui.drawer];
+  const tab = { parties: PartiesDashboard, roster: RosterDashboard, tavern: TavernTab, guild: GuildTab, ledger: LedgerTab }[ui.drawer];
   const Tab = tab;
   const content = ui.drawer === 'route' ? <RouteDrawer /> : ui.drawer === 'quests'
     ? <><div className="drawer-kicker">QUEST LEDGER</div><h2>Open contracts</h2><div className="stack">{S.board.map((q) => <QuestCard key={q.id} q={q} />)}</div></>
     : Tab ? <Tab /> : null;
-  return <aside className={'map-drawer' + (ui.drawer === 'parties' ? ' wide' : '')}><button className="drawer-close" onClick={() => dispatch('drawer', ui.drawer)}>×</button>{content}</aside>;
+  return <aside className={'map-drawer' + (ui.drawer === 'parties' ? ' wide' : ui.drawer === 'roster' ? ' wide fixed' : '')}><button className="drawer-close" onClick={() => dispatch('drawer', ui.drawer)}>×</button>{content}</aside>;
 }
 
 /** A visitor asking to join. It sits in the corner and never interrupts play. */

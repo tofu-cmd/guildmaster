@@ -2,52 +2,6 @@ import { STATS, SS, CLASSES, TIERS, BLD, BOSSES, RANKS, BOSS_RANK } from '../eng
 import { S, M, ui, dispatch, members, party, stat, status, unavailable, rosterCap, efx, era, bl, atHome } from '../engine/game.js';
 import HeroCard from './HeroCard.jsx';
 
-export function RosterTab() {
-  const hs = [...S.heroes].sort((a, b) => b.tier - a.tier || b.level - a.level);
-  return (
-    <>
-      <div className="sect">
-        <h2>Roster</h2>
-        <span className="cinfo">{S.heroes.length}/{rosterCap()} heroes · wages {Math.round(S.heroes.reduce((s, h) => s + h.wage, 0) * efx('wage', 1))}g/day</span>
-      </div>
-      {hs.length ? (
-        <div className="grid">
-          {hs.map((h) => {
-            const pn = h.party && party(h.party), st = status(h);
-            const extra = (
-              <>
-                <button className={'btn small' + (h.unread ? ' primary' : '')} onClick={() => dispatch('dossier', h.id)}>{h.unread ? `Journal (${h.unread})` : 'Journal'}</button>
-                {(st === 'ready' || st === 'injured') && <button className="btn small" onClick={() => dispatch('relax', h.id)}>Relax</button>}
-                {st !== 'questing' && st !== 'roaming' && (ui.confirm === h.id
-                  ? <button className="btn small danger" onClick={() => dispatch('release', h.id)}>Confirm release</button>
-                  : <button className="btn small" onClick={() => dispatch('release', h.id)}>Release</button>)}
-              </>
-            );
-            return (
-              <div className="stack" key={h.id}>
-                <HeroCard h={h} extra={extra} />
-                <div className="cinfo">{pn ? 'In ' + pn.name : 'Not in a party'} · {h.wins} quests won</div>
-              </div>
-            );
-          })}
-        </div>
-      ) : <div className="empty">Nobody works for you. Visit the Tavern.</div>}
-      {S.fallen.length > 0 && (
-        <>
-          <div className="sect"><h2>Fallen</h2></div>
-          <div className="stack">
-            {S.fallen.slice().reverse().map((f, i) => (
-              <div className="cinfo" key={i}>
-                {f.name}{f.title ? ` (${f.title}, ${f.rep})` : ''}, {TIERS[f.tier].n} {CLASSES[f.cls].n} (Lv {f.level}), died on day {f.day} during "{f.quest}".
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </>
-  );
-}
-
 export function TavernTab() {
   const full = S.heroes.length >= rosterCap();
   return (

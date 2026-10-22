@@ -680,6 +680,7 @@ export function dispatch(act,a,b){
     case 'tab':ui.tab=a;ui.drawer=a;ui.modal=null;ui.confirm=null;break;
     case 'drawer':ui.drawer=ui.drawer===a?null:a;ui.tab=a;break;
     case 'selectparty':ui.selectedParty=+a;ui.drawer='route';break;
+    case 'rfilter':ui.rf=a==='reset'?{cls:'all',st:'all',sort:(ui.rf&&ui.rf.sort)||'tier'}:{cls:'all',st:'all',sort:'tier',...(ui.rf||{}),[a]:b};break;
     case 'expand':ui.exp=ui.exp||{};ui.exp[+a]=!ui.exp[+a];break;
     case 'cname':{const s=ui.create.slots[+a];s.name=pick(FIRST);break}
     case 'ccls':{const s=ui.create.slots[+a];s.cls=b;s.base=rollBase(b,s.tier);s.focus=topStat(b);break}
