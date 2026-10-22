@@ -195,6 +195,32 @@ i.good{background:var(--good)} i.warn{background:var(--warn)} i.bad{background:v
 .opt small{color:var(--mute);white-space:nowrap}
 .opt small.safe{color:var(--good)} .opt small.risky{color:var(--bad)} .opt small.even{color:var(--warn)}
 .opt small.need{color:var(--mute)}
+/* map */
+.mapwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:#1a2a21}
+.map{display:block;width:100%;min-width:560px;height:auto}
+.mrun{transition:transform .12s linear}
+.mlabel{font:700 10px var(--body);fill:#e7e1d1;paint-order:stroke;stroke:#0e1216;stroke-width:3px;stroke-linejoin:round}
+.plabel{font:700 10px var(--body);paint-order:stroke;stroke:#0e1216;stroke-width:3px;stroke-linejoin:round}
+.pin{cursor:pointer}
+.pin:hover .pinc{fill:#4a3d18}
+.pinn{font:700 12px var(--body);fill:#e7e1d1;pointer-events:none}
+.pin.hot .pinc{animation:throb2 1.3s ease-in-out infinite}
+@keyframes throb2{50%{fill:#5a1f1a}}
+@media (prefers-reduced-motion:reduce){.pin.hot .pinc{animation:none}.mrun{transition:none}}
+.maplegend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--mute);margin-top:6px}
+.maplegend span{display:flex;align-items:center;gap:6px}
+.lg{width:12px;height:12px;border-radius:50%;border:2px solid var(--brass);background:#2a2415;display:inline-block}
+.lg.pin2{border-color:var(--bad)} .lg.pin3{border-color:#e7e1d1;background:#161c22}
+.pdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+/* journal */
+.mtabs{display:flex;gap:6px;border-bottom:1px solid var(--line)}
+.mtab{background:none;border:0;border-bottom:3px solid transparent;padding:8px 12px;font-weight:700;color:var(--mute)}
+.mtab.on{color:var(--fg);border-color:var(--brass)}
+.jent{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.jent p{margin:0}
+.jent.story{border-color:var(--brass)}
+.jent.fresh{border-color:var(--good)}
+.jday{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--brass);font-weight:700}
 /* detailed hero cards + founding screen */
 .hero.full{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:12px}
 .hhead{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
@@ -552,7 +578,7 @@ function pickQuirks(tier){
 }
 const randLook=()=>({skin:ri(0,3),cloth:Math.random()<.6?0:ri(1,5),hair:Math.random()<.4?0:ri(1,5)});
 function heroObj(o){
-  return {id:uid(),name:o.name,cls:o.cls,tier:o.tier,level:1,xp:0,base:o.base,injured:0,rest:0,party:null,wins:0,quests:0,rep:0,story:[],pend:false,stress:0,quirks:o.quirks,affl:null,virtue:null,look:o.look,wage:o.wage};
+  return {id:uid(),name:o.name,cls:o.cls,tier:o.tier,level:1,xp:0,base:o.base,injured:0,rest:0,party:null,wins:0,quests:0,rep:0,story:[],journal:[],unread:0,stress:0,quirks:o.quirks,affl:null,virtue:null,look:o.look,wage:o.wage};
 }
 function makeHero(tier,cls){
   cls=cls||pick(availableClasses());
@@ -602,6 +628,7 @@ function foundGuild(){
   });
   S.heroes.slice(0,4).forEach(h=>{h.party=S.parties[0].id;S.parties[0].members.push(h.id)});
   S.setup=false;
+  S.heroes.forEach(h=>jot(h,`Joined ${S.guildName} as a founding member.`,'moment',true));
   S.log.unshift({d:1,t:`${S.guildName} opens its doors with ${S.heroes.map(h=>h.name.split(' ')[0]).join(', ')}. Era: ${era().n}.`});
   ui.create=null;
   if(ui.introAfter){ui.modal={type:'intro'};ui.introAfter=false}
@@ -688,10 +715,12 @@ function breakdown(h,ev){
     const v=pick(Object.keys(VIRT));
     h.virtue=v;h.affl=null;h.stress=40;shiftRep(h,4,ev);
     ev.push({k:'win',t:`${h.name} rises to the moment and becomes ${VIRT[v].n}! ${VIRT[v].d}`});
+    jot(h,`Rose to the moment under pressure and became ${VIRT[v].n}.`,'moment');
   }else{
     const a=pick(Object.keys(AFFL));
     h.affl=a;h.virtue=null;h.stress=60;shiftRep(h,-3,ev);
     ev.push({k:'death',t:`${h.name} breaks under the strain and becomes ${AFFL[a].n}. ${AFFL[a].d}`});
+    jot(h,`Broke under the strain and became ${AFFL[a].n}.`,'moment');
   }
 }
 function addStress(h,amt,ms,ev){
@@ -700,6 +729,7 @@ function addStress(h,amt,ms,ev){
   if(h.stress>=100)breakdown(h,ev);
   else if(h.affl&&h.stress<=20){
     ev.push({k:'win',t:`${h.name} has recovered from being ${AFFL[h.affl].n}.`});
+    jot(h,`Recovered from being ${AFFL[h.affl].n}.`,'moment');
     h.affl=null;
   }
 }
@@ -724,20 +754,40 @@ function gainRenown(n,ev){
 }
 function addXp(h,x,ev){
   h.xp+=Math.round(x*(1+.2*bl('training'))*fxm(h,'xp'));
-  while(h.xp>=40*h.level&&h.level<12){h.xp-=40*h.level;h.level++;ev.push({k:'lvl',t:`${h.name} reached level ${h.level}.`})}
+  while(h.xp>=40*h.level&&h.level<12){h.xp-=40*h.level;h.level++;ev.push({k:'lvl',t:`${h.name} reached level ${h.level}.`});jot(h,`Reached level ${h.level}.`,'moment')}
 }
 function shiftRep(h,d,ev){
   const before=repTier(h.rep||0).n;
   h.rep=clamp((h.rep||0)+d,-100,100);
   const after=repTier(h.rep).n;
-  if(after!==before)ev.push({k:d>0?'win':'loss',t:`${h.name} is now seen as ${after} (${h.rep>0?'+':''}${h.rep} reputation).`});
+  if(after!==before){
+    ev.push({k:d>0?'win':'loss',t:`${h.name} is now seen as ${after} (${h.rep>0?'+':''}${h.rep} reputation).`});
+    jot(h,`The guild now sees ${h.name.split(' ')[0]} as ${after}.`,'moment');
+  }
+}
+function jot(h,t,k,quiet){
+  h.journal=h.journal||[];
+  h.journal.push({d:S.day,k:k||'moment',t});
+  if(h.journal.length>80)h.journal.shift();
+  if(!quiet)h.unread=(h.unread||0)+1;
+}
+/* backstory chapters unlock with finished quests and write themselves, leaning on the hero's reputation */
+function autoChapter(h,ev){
+  const ci=h.story.length,C=CHAPTERS[ci];
+  const opts=C.o.map((o,i)=>({o,i})).filter(x=>!x.o.k||(x.o.k==='hi'&&h.rep>=40)||(x.o.k==='lo'&&h.rep<=-30));
+  const w=x=>x.o.k?2.5:x.o.m>0?1+Math.max(0,h.rep)/25:x.o.m<0?1+Math.max(0,-h.rep)/25:1;
+  let r=Math.random()*opts.reduce((a,x)=>a+w(x),0),pickd=opts[0];
+  for(const x of opts){r-=w(x);if(r<=0){pickd=x;break}}
+  const o=pickd.o;
+  h.story.push({c:ci,o:pickd.i});
+  if(o.fx.wage)h.wage=Math.max(1,Math.round(h.wage*o.fx.wage));
+  jot(h,`Chapter ${ci+1}, ${C.n}: ${o.l}. ${fillStory(o.s,h)} (Gained the trait ${o.t}.)`,'story');
+  shiftRep(h,o.r,ev||[]);
+  S.log.unshift({d:S.day,t:`${h.name} opened up about their past: ${o.l}.`});
+  if(ev)ev.push({k:'lvl',t:`${h.name}'s journal has a new entry: "${o.l}" (${o.t}).`});
 }
 function checkStory(h,ev){
-  const i=(h.story||[]).length;
-  if(i<CHAPTERS.length&&!h.pend&&(h.quests||0)>=CHAPTERS[i].at){
-    h.pend=true;S.storyQ.push(h.id);
-    if(ev)ev.push({k:'rank',t:`${h.name} has a new chapter of their story to tell.`});
-  }
+  while(h.story.length<CHAPTERS.length&&(h.quests||0)>=CHAPTERS[h.story.length].at)autoChapter(h,ev);
 }
 function hallEntry(h){
   return {name:h.name,cls:h.cls,tier:h.tier,rep:h.rep||0,title:alignTitle(h),traits:(h.story||[]).map(s=>CHAPTERS[s.c].o[s.o].t)};
@@ -769,9 +819,7 @@ function tickMission(p,ev){
     const avail=DECISIONS.map((d,i)=>i).filter(i=>!m.used.includes(i));
     if(avail.length){
       const i=pick(avail);m.used.push(i);
-      m.ev.push({day:e,icon:DECISIONS[i].icon,tone:'neutral',t:DECISIONS[i].title,pending:true,did:i});
-      S.pending.push({pid:p.id,day:e});
-      ev.push({k:'info',m:true,t:`${p.name} faces a decision: ${DECISIONS[i].title}.`});
+      runDecision(p,i,e,ev);
       return;
     }
   }
@@ -801,7 +849,7 @@ function resolve(p,ev){
     const selfish=ms.filter(h=>h.affl==='selfish').length;
     if(selfish){g=Math.round(g*(1-.1*selfish));ev.push({k:'loss',t:`A selfish party member pocketed some of the loot.`})}
     S.gold+=g;S.stats.won++;
-    ms.forEach(h=>{h.wins++;h.quests=(h.quests||0)+1;shiftRep(h,Math.round(1+q.d*.5)+(great?2:0)+(q.boss?10:0),ev);addXp(h,q.xp,ev)});
+    ms.forEach(h=>{h.wins++;h.quests=(h.quests||0)+1;jot(h,`${great?'Crushed':'Completed'} "${q.title}" with ${p.name}.`,'quest');shiftRep(h,Math.round(1+q.d*.5)+(great?2:0)+(q.boss?10:0),ev);addXp(h,q.xp,ev)});
     ev.push({k:'win',t:`${p.name} ${great?'crushed':'completed'} "${q.title}" (${pct}% final odds). +${g} gold, +${rn} renown.`});
     gainRenown(rn,ev);
     ms.forEach(h=>addStress(h,ri(0,4),ms,ev));
@@ -830,7 +878,7 @@ function resolve(p,ev){
       ev.push({k:'death',t:`The crisis was not stopped. The realm turns on your guild.`});
     }
     ms.forEach(h=>{
-      h.quests=(h.quests||0)+1;shiftRep(h,-Math.round(2+q.d*.4),ev);
+      h.quests=(h.quests||0)+1;jot(h,`Failed "${q.title}" with ${p.name}.`,'quest');shiftRep(h,-Math.round(2+q.d*.4),ev);
       addXp(h,Math.round(q.xp/2),ev);
       addStress(h,ri(14,26)*(q.boss?1.4:1),ms,ev);
       const vig=h.virtue==='vigorous'?.5:1;
@@ -839,6 +887,7 @@ function resolve(p,ev){
       }else if(Math.random()<(.4+.02*q.d)*mit*fxm(h,'injury')*vig){
         h.injured=Math.max(1,ri(2,2+Math.ceil(q.d/2))-bl('infirmary')+efx('heal',0));
         ev.push({k:'loss',t:`${h.name} is injured for ${h.injured} days.`});
+        jot(h,`Injured on the road. Out of action for ${h.injured} days.`,'moment');
       }
     });
   }
@@ -856,22 +905,25 @@ function resolve(p,ev){
   p.members=p.members.filter(id=>hero(id));
   members(p).forEach(h=>checkStory(h,ev));
 }
-function decide(oi){
-  const pd=S.pending.shift(),p=party(pd.pid),m=p.mission;
-  const me=m.ev.find(x=>x.day===pd.day&&x.pending),D=DECISIONS[me.did],o=D.o[oi];
-  const ms=members(p),ch=chance(ms,m.quest),ev=[];
+/* road events resolve on their own: a specialist in the party takes charge when one fits */
+function runDecision(p,i,e,ev,me){
+  const m=p.mission,D=DECISIONS[i],ms=members(p),ch=chance(ms,m.quest),fn=h=>h.name.split(' ')[0];
+  const opts=D.o.filter(o=>!o.c||ms.some(h=>h.cls===o.c));
+  const gated=opts.filter(o=>o.c),plain=opts.filter(o=>!o.c&&!o.s),safe=opts.filter(o=>o.s);
+  const o=gated.length?pick(gated):(safe.length&&(!plain.length||Math.random()<.3)?pick(safe):pick(plain.length?plain:opts));
   let r,tone;
   if(o.s){r=o.s;tone='neutral'}
   else if(Math.random()<clamp(o.p+(ch-.5)*.3,.1,.95)){r=o.w;tone='good'}
   else{r=o.f;tone='bad'}
   m.mom+=r[0];
   if(r[1])ms.forEach(h=>addStress(h,r[1],ms,ev));
-  let t=r[2];
+  const actor=o.c?ms.find(h=>h.cls===o.c):pick(ms);
+  let t=`${o.c?`${fn(actor)} takes charge. `:''}${r[2]}`;
   if(r[3]){const g=Math.round(r[3]*m.quest.d);S.gold+=g;t+=` +${g} gold.`}
-  me.pending=false;me.tone=tone;me.t=t;
-  S.log.unshift({d:S.day,t:`${p.name}: ${D.title}. ${t}`});
-  ev.forEach(e=>S.log.unshift({d:S.day,t:e.t}));
-  ui.modal={type:'dresult',tone,t,extra:ev};
+  const entry={day:e,icon:D.icon,tone,t:`${D.title}. ${t}`};
+  if(me)Object.assign(me,entry,{pending:false});else m.ev.push(entry);
+  ev.push({k:tone==='good'?'win':tone==='bad'?'loss':'info',m:true,t:`${p.name}: ${D.title}. ${t}`});
+  jot(actor,`${m.quest.title}, day ${e}: ${D.title}. ${t}`,'quest');
 }
 function endDay(){
   if(S.over)return;
@@ -936,24 +988,9 @@ function pushToast(e){
 }
 function nextModal(){
   if(S.over)ui.modal={type:'over'};
-  else if(S.pending.length)ui.modal={type:'decision'};
   else if(S.vic===1){S.vic=2;ui.modal={type:'victory'}}
   else if(S.offers.length)ui.modal={type:'offer'};
-  else{
-    while(S.storyQ.length&&!(hero(S.storyQ[0])&&hero(S.storyQ[0]).pend))S.storyQ.shift();
-    ui.modal=S.storyQ.length?{type:'story',hid:S.storyQ[0]}:null;
-  }
-}
-function chooseChapter(h,oi){
-  const ci=h.story.length,o=CHAPTERS[ci].o[oi],ev=[];
-  h.story.push({c:ci,o:oi});h.pend=false;
-  if(o.fx.wage)h.wage=Math.max(1,Math.round(h.wage*o.fx.wage));
-  shiftRep(h,o.r,ev);
-  S.storyQ=S.storyQ.filter(id=>id!==h.id);
-  S.log.unshift({d:S.day,t:`${h.name} shared a part of their past: ${o.l}. Trait gained: ${o.t}.`});
-  ev.forEach(e=>S.log.unshift({d:S.day,t:e.t}));
-  checkStory(h,null);
-  ui.modal={type:'storydone',hid:h.id,ci,oi,extra:ev};
+  else ui.modal=null;
 }
 
 /* ---------- legacy (carries across runs) ---------- */
@@ -1041,23 +1078,81 @@ function questCard(q){
     <div class="qfoot"><span class="cinfo">${q.boss?'Waits on the board until you are ready':q.crisis?`<b class="bad">${q.expires} days left to send a party</b>`:`Leaves board in ${q.expires} day${q.expires>1?'s':''}`}</span><button class="btn primary" data-act="assign" data-a="${q.id}">Send a party</button></div>
   </div>`;
 }
+/* ---------- bird's-eye map of the realm ---------- */
+const MAPW=640,MAPH=430,GUILD={x:320,y:222};
+const PCOL=['#d4aa4f','#5ea6ec','#b97cef','#72c177','#dc6652'];
+const LOC={};
+(function(){
+  const rx=[95,145,195,245,290],ry=[60,92,122,150,178];
+  PLACE.forEach((arr,b)=>arr.forEach((n,i)=>{const a=(i*90+b*41+25)*Math.PI/180;LOC[n]={x:Math.round(GUILD.x+rx[b]*Math.cos(a)),y:Math.round(GUILD.y+ry[b]*Math.sin(a))}}));
+  TOWNS.forEach((n,i)=>{const a=(i*60+10)*Math.PI/180;LOC[n]={x:Math.round(GUILD.x+125*Math.cos(a)),y:Math.round(GUILD.y+80*Math.sin(a))}});
+  LOC['the Drowned Throne']={x:560,y:62};
+})();
+const hashStr=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)};
+const locOf=place=>LOC[place]||{x:GUILD.x+60+hashStr(place)%140,y:GUILD.y-60-hashStr(place+'y')%110};
+function route(place){
+  const L=locOf(place),G=GUILD,dx=L.x-G.x,dy=L.y-G.y,len=Math.hypot(dx,dy)||1,off=(hashStr(place)%70)-35;
+  return {G,L,C:{x:(G.x+L.x)/2-dy/len*off,y:(G.y+L.y)/2+dx/len*off}};
+}
+const bez=(r,t)=>{const u=1-t;return {x:u*u*r.G.x+2*u*t*r.C.x+t*t*r.L.x,y:u*u*r.G.y+2*u*t*r.C.y+t*t*r.L.y}};
+const routeD=r=>`M${r.G.x} ${r.G.y}Q${r.C.x.toFixed(1)} ${r.C.y.toFixed(1)} ${r.L.x} ${r.L.y}`;
+const svgAt=(svg,x,y)=>svg.replace('<svg class="pix"',`<svg class="pix" x="${x}" y="${y}"`);
+let terrainCache='';
+function terrain(){
+  if(terrainCache)return terrainCache;
+  let seed=7;const rr=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+  let s=`<rect width="${MAPW}" height="${MAPH}" fill="#1a2a21"/>`;
+  for(let i=0;i<14;i++)s+=`<ellipse cx="${(rr()*MAPW).toFixed(0)}" cy="${(rr()*MAPH).toFixed(0)}" rx="${(40+rr()*60).toFixed(0)}" ry="${(20+rr()*35).toFixed(0)}" fill="#20352a" opacity=".7"/>`;
+  s+=`<path d="M0 95C90 125 150 60 240 112S380 190 430 252S560 360 640 332" fill="none" stroke="#27455c" stroke-width="10" opacity=".9"/>`;
+  for(let i=0;i<15;i++){const x=30+rr()*580,y=16+rr()*42;s+=`<path d="M${(x-12).toFixed(0)} ${(y+11).toFixed(0)}L${x.toFixed(0)} ${(y-9).toFixed(0)}L${(x+12).toFixed(0)} ${(y+11).toFixed(0)}z" fill="#4a525c"/><path d="M${(x-3.5).toFixed(0)} ${(y-2).toFixed(0)}L${x.toFixed(0)} ${(y-9).toFixed(0)}L${(x+3.5).toFixed(0)} ${(y-2).toFixed(0)}z" fill="#d8dde2"/>`}
+  for(let i=0;i<75;i++){
+    const x=rr()*MAPW,y=70+rr()*(MAPH-80);
+    if(Math.hypot(x-GUILD.x,y-GUILD.y)<42)continue;
+    s+=`<path d="M${x.toFixed(0)} ${(y-8).toFixed(0)}l5 9h-10z" fill="${rr()<.5?'#25402f':'#2f5239'}"/>`;
+  }
+  return terrainCache=s;
+}
+function mapSvg(){
+  const act=S.parties.map((p,i)=>({p,i,c:PCOL[i%PCOL.length]})).filter(x=>x.p.mission);
+  let s=`<svg class="map" viewBox="0 0 ${MAPW} ${MAPH}" role="img" aria-label="Map of the realm">${terrain()}`;
+  Object.keys(LOC).forEach(n=>{const l=LOC[n];s+=`<circle cx="${l.x}" cy="${l.y}" r="3" fill="#7d8c97" opacity=".5"><title>${esc(n)}</title></circle>`});
+  act.forEach(({p,c})=>{
+    const m=p.mission,q=m.quest,t=m.total||q.days,e=t-m.daysLeft,r=route(q.place),pf=progress(p)/100;
+    s+=`<path d="${routeD(r)}" fill="none" stroke="#e7e1d1" stroke-opacity=".35" stroke-width="2" stroke-dasharray="5 5"/>`;
+    s+=`<path class="rdone" data-pid="${p.id}" d="${routeD(r)}" pathLength="1" fill="none" stroke="${c}" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="${pf.toFixed(3)} 2"/>`;
+    for(let k=1;k<t;k++){
+      const pt=bez(r,k/t),ev=(m.ev||[]).find(x=>x.day===k);
+      if(k<=e&&ev&&!ev.pending){
+        const col=ev.tone==='good'?'#7fb069':ev.tone==='bad'?'#dc6652':'#93a0ab';
+        s+=`<g><circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="9" fill="#161c22" stroke="${col}" stroke-width="2"/>${svgAt(icon(ev.icon,12),(pt.x-6).toFixed(1),(pt.y-6).toFixed(1))}<title>${esc(ev.t)}</title></g>`;
+      }else s+=`<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="4" fill="#161c22" stroke="#93a0ab" stroke-opacity=".6"/>`;
+    }
+    s+=`<g><circle cx="${r.L.x}" cy="${r.L.y}" r="14" fill="#161c22" stroke="${c}" stroke-width="2.5"/>${svgAt(icon('boss',16),r.L.x-8,r.L.y-8)}<text class="mlabel" x="${r.L.x}" y="${r.L.y+27}" text-anchor="middle">${esc(q.place)}</text></g>`;
+  });
+  const groups={};
+  S.board.forEach(q=>{(groups[q.place]=groups[q.place]||[]).push(q)});
+  Object.keys(groups).forEach(pl=>{
+    const l=locOf(pl),arr=groups[pl];
+    arr.forEach((q,i)=>{
+      const x=l.x+(i-(arr.length-1)/2)*28,y=l.y-19,hot=q.crisis||q.boss;
+      s+=`<g class="pin${hot?' hot':''}" data-act="assign" data-a="${q.id}"><circle cx="${x}" cy="${y}" r="18" fill="transparent"/><path d="M${x} ${y+12}L${l.x} ${l.y-3}" stroke="${hot?'#dc6652':'#d4aa4f'}" stroke-width="1.5" opacity=".7"/><circle class="pinc" cx="${x}" cy="${y}" r="12" fill="#2a2415" stroke="${hot?'#dc6652':'#d4aa4f'}" stroke-width="2"/><text class="pinn" x="${x}" y="${y+4.5}" text-anchor="middle">${q.d}</text><title>${esc(q.title)} at ${esc(pl)}. Danger ${q.d}. Click to send a party.</title></g>`;
+    });
+  });
+  s+=`<g transform="translate(${GUILD.x} ${GUILD.y})"><rect x="-11" y="-8" width="22" height="15" fill="#8a6a3a"/><path d="M-14 -8L0 -22L14 -8z" fill="#b0463a"/><rect x="-3" y="0" width="6" height="7" fill="#2b1d10"/></g><text class="mlabel" x="${GUILD.x}" y="${GUILD.y+22}" text-anchor="middle">${esc(S.guildName||'Your guild')}</text>`;
+  act.forEach(({p,c})=>{
+    const q=p.mission.quest,pos=bez(route(q.place),progress(p)/100),ms=members(p),n=ms.length;
+    s+=`<g class="mrun" data-pid="${p.id}" style="transform:translate(${pos.x.toFixed(1)}px,${pos.y.toFixed(1)}px)"><ellipse cx="0" cy="3" rx="${n*7+4}" ry="4" fill="#000" opacity=".35"/>${ms.map((h,i)=>svgAt(sprite(h.cls,h.tier,14,h.look),(-n*7+i*14).toFixed(0),-15)).join('')}<text class="plabel" x="0" y="-20" text-anchor="middle" fill="${c}">${esc(p.name)}</text></g>`;
+  });
+  s+=`<text x="${MAPW-14}" y="22" text-anchor="end" class="mlabel">N</text></svg>`;
+  return s;
+}
 function missionCard(p){
   const m=p.mission,q=m.quest,t=m.total||q.days,e=t-m.daysLeft,evs=m.ev||[],ms=members(p);
-  const now=progress(p);
-  let nodes=`<div class="node good" style="left:0" title="Departed">${icon('flag',16)}</div>`;
-  for(let k=1;k<=t;k++){
-    const ev=evs.find(x=>x.day===k),left=k/t*100;
-    if(k===t)nodes+=`<div class="node goal" style="left:${left}%" title="Destination">${icon('boss',16)}</div>`;
-    else if(k<=e&&ev&&ev.pending)nodes+=`<div class="node pending" style="left:${left}%" title="A decision awaits">!</div>`;
-    else if(k<=e&&ev)nodes+=`<div class="node ${ev.tone}" style="left:${left}%" title="${esc(ev.t)}">${icon(ev.icon,16)}</div>`;
-    else nodes+=`<div class="node unk" style="left:${left}%">?</div>`;
-  }
+  const idx=S.parties.indexOf(p);
   const log=evs.filter(x=>x.day<=e&&x.day<t&&!x.pending).map(x=>`<div class="${x.tone==='neutral'?'':x.tone}">${icon(x.icon,18)}<span><b>Day ${x.day}</b> ${esc(x.t)}</span></div>`).join('');
   const mood=m.mom>.04?'<span class="pill good">Going well</span>':m.mom<-.04?'<span class="pill bad">Going badly</span>':'<span class="pill">Steady</span>';
   return `<div class="card mission${q.boss?' boss':''}${q.crisis?' crisis':''}">
-    <div class="qtop"><div style="min-width:0"><div class="qtype">${esc(p.name)} · day ${e} of ${t}</div><div class="qtitle">${esc(q.title)}</div>${q.crisis?'<div class="cinfo bad">The guild’s survival depends on this quest.</div>':''}</div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><div class="dlabel">Danger ${q.d}</div>${mood}</div></div>
-    <div class="track"><div class="rail"></div><div class="fill" style="width:${now}%" data-pid="${p.id}"></div>${nodes}
-      <div class="runner" style="left:${now}%" data-pid="${p.id}">${ms.map(h=>sprite(h.cls,h.tier,26,h.look)).join('')}</div></div>
+    <div class="qtop"><div style="min-width:0"><div class="qtype"><span class="pdot" style="background:${PCOL[idx%PCOL.length]}"></span>${esc(p.name)} · day ${e} of ${t}</div><div class="qtitle">${esc(q.title)}</div>${q.crisis?'<div class="cinfo bad">The guild’s survival depends on this quest.</div>':''}</div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><div class="dlabel">Danger ${q.d}</div>${mood}</div></div>
     <div class="mstress">${ms.map(h=>`<div><small>${esc(h.name.split(' ')[0])} ${h.stress}</small><div class="stress ${stressCls(h.stress)}"><i style="width:${h.stress}%"></i></div></div>`).join('')}</div>
     <div class="mlog"><div>${icon('flag',18)}<span><b>Day 0</b> ${esc(p.name)} sets out for ${esc(q.place)}.</span></div>${log}</div>
   </div>`;
@@ -1096,8 +1191,11 @@ function renderRank(){
 function renderTab(){
   if(ui.tab==='quests'){
     const out=S.parties.filter(p=>p.mission);
-    return `<div class="sect"><h2>Out on quests</h2><span class="cinfo">Each day, a party travels a step and meets something on the road.</span></div>
-      ${out.length?`<div class="grid">${out.map(missionCard).join('')}</div>`:`<div class="empty">No party is out. Pick a quest below and send someone.</div>`}
+    return `<div class="sect"><h2>The realm</h2><span class="cinfo">Tap a numbered pin (its danger level) to send a party there.</span></div>
+      <div class="mapwrap">${mapSvg()}</div>
+      <div class="maplegend"><span><i class="lg pin1"></i>Quest on the board</span><span><i class="lg pin2"></i>Crisis or final quest</span><span><i class="lg pin3"></i>A party’s destination</span></div>
+      <div class="sect"><h2>Out on quests</h2><span class="cinfo">Each day, a party travels a step and meets something on the road.</span></div>
+      ${out.length?`<div class="grid">${out.map(missionCard).join('')}</div>`:`<div class="empty">No party is out. Pick a quest on the map or the board and send someone.</div>`}
       <div class="sect"><h2>Quest board</h2><span class="cinfo">Higher danger pays more, but your odds drop.</span></div>
       ${S.board.length?`<div class="grid">${S.board.map(questCard).join('')}</div>`:`<div class="empty">The board is empty. End the day for new quests.</div>`}`;
   }
@@ -1110,7 +1208,7 @@ function renderTab(){
     return `<div class="sect"><h2>Roster</h2><span class="cinfo">${S.heroes.length}/${rosterCap()} heroes · wages ${Math.round(S.heroes.reduce((s,h)=>s+h.wage,0)*efx('wage',1))}g/day</span></div>
       ${hs.length?`<div class="grid">${hs.map(h=>{
         const pn=h.party&&party(h.party),st=status(h);
-        const dos=`<button class="btn small${h.pend?' primary':''}" data-act="dossier" data-a="${h.id}">${h.pend?'New chapter':'Dossier'}</button>`;
+        const dos=`<button class="btn small${h.unread?' primary':''}" data-act="dossier" data-a="${h.id}">${h.unread?`Journal (${h.unread})`:'Journal'}</button>`;
         const relax=dos+(st==='ready'||st==='injured'?`<button class="btn small" data-act="relax" data-a="${h.id}">Relax</button>`:'');
         const rel=st==='questing'?'':ui.confirm===h.id?`<button class="btn small danger" data-act="release" data-a="${h.id}">Confirm release</button>`:`<button class="btn small" data-act="release" data-a="${h.id}">Release</button>`;
         return `<div class="stack">${heroCard(h,relax+rel)}<div class="cinfo">${pn?'In '+esc(pn.name):'Not in a party'} · ${h.wins} quests won</div></div>`;
@@ -1150,9 +1248,9 @@ function renderModal(){
       <ol class="steps">
         <li><b>Hire heroes</b> in the Tavern. Each has a class, rarity and quirks, good and bad. Wages come out every day.</li>
         <li><b>Build parties</b> of up to 4. Different classes boost your odds. A Cleric keeps people alive.</li>
-        <li><b>Send a party on a quest.</b> Press <b>End Day</b> to move time forward. Your party travels one step per day and meets things on the road, and sometimes you decide what they do. Some choices need a specific class. Prefer real time? Switch "Time" at the bottom of the page to Live.</li>
+        <li><b>Send a party on a quest</b> by tapping a pin on the map or using the board. Press <b>End Day</b> to move time forward. Parties walk the roads, and each day something happens, solved on its own by whoever in the party is best suited. Class mix matters. Prefer real time? Switch "Time" at the bottom of the page to Live.</li>
         <li><b>Watch stress.</b> Fear builds up. At 100 a hero breaks: afflicted, or rarely, heroic. Use the Relax button on the Roster tab to calm them down.</li>
-        <li><b>Build their legends.</b> Wins raise a hero’s reputation and losses lower it. As they finish quests, new chapters of their backstory unlock. You choose how each one reads, and each choice grants a trait and shapes their morals.</li>
+        <li><b>Build their legends.</b> Wins raise a hero’s reputation and losses lower it. As they finish quests, chapters of their backstory write themselves, shaped by how they are regarded. Read it all in each hero’s Journal, on the Roster tab.</li>
         <li><b>Answer crises.</b> Now and then, a red crisis quest appears with a 25-day deadline. If it expires unanswered, or your party fails it, your guild is lost. A banner at the top counts the days down.</li>
         <li><b>Grow the guild.</b> Win quests for renown and rank. Spend gold on upgrades in the Guild tab. Stronger heroes come knocking.</li>
         <li><b>Reach Rank S</b> and the final boss awakens. Slay it to win the run. Every run, win or lose, earns Legacy points that unlock perks and new classes for the next run.</li>
@@ -1192,21 +1290,6 @@ function renderModal(){
   }else if(m.type==='report'){
     body=`<h2>Day ${S.day-1} report</h2><ul class="ev">${m.ev.map(e=>`<li class="${e.k}">${esc(e.t)}</li>`).join('')||'<li>A quiet day.</li>'}</ul>
       <div class="mact"><button class="btn primary" data-act="next">Continue</button></div>`;dismiss=false;
-  }else if(m.type==='decision'){
-    const pd=S.pending[0],p=party(pd.pid),mi=p.mission,me=mi.ev.find(x=>x.day===pd.day&&x.pending),D=DECISIONS[me.did],ms=members(p),ch=chance(ms,mi.quest);
-    body=`<div class="dhead">${icon(D.icon,40)}<div><h2>${D.title}</h2><div class="cinfo">${esc(p.name)} · ${esc(mi.quest.title)}</div></div></div>
-      <p>${D.text}</p>
-      <div class="stack">${D.o.map((o,i)=>{
-        const has=!o.c||ms.some(h=>h.cls===o.c);
-        let tag='<small class="safe">Safe</small>';
-        if(!o.s){const pr=clamp(o.p+(ch-.5)*.3,.1,.95);tag=pr>=.75?'<small class="safe">Likely</small>':pr>=.5?'<small class="even">Even odds</small>':'<small class="risky">Risky</small>'}
-        if(!has)tag=`<small class="need">Needs a ${CLASSES[o.c].n}</small>`;
-        return `<button class="opt" data-act="decide" data-a="${i}" ${has?'':'disabled'}><span>${o.l}${o.c&&has?` <span class="cinfo">(${CLASSES[o.c].n} skill)</span>`:''}</span>${tag}</button>`;
-      }).join('')}</div>`;dismiss=false;
-  }else if(m.type==='dresult'){
-    body=`<h2 class="${m.tone==='good'?'good':m.tone==='bad'?'bad':''}">${m.tone==='good'?'It works':m.tone==='bad'?'It goes wrong':'The party plays it safe'}</h2>
-      <p>${esc(m.t)}</p>${m.extra.length?`<ul class="ev">${m.extra.map(e=>`<li class="${e.k}">${esc(e.t)}</li>`).join('')}</ul>`:''}
-      <div class="mact"><button class="btn primary" data-act="next">Continue</button></div>`;dismiss=false;
   }else if(m.type==='offer'){
     const o=S.offers[0],h=o.hero,full=S.heroes.length>=rosterCap();
     body=`<h2>A visitor at the door</h2>
@@ -1217,35 +1300,20 @@ function renderModal(){
   }else if(m.type==='dossier'){
     const h=hero(m.hid);
     if(!h){ui.modal=null;return ''}
-    const rt=repTier(h.rep||0);
+    const rt=repTier(h.rep||0),unread=h.unread||0,tab=m.tab||(unread?'journal':'story');
+    if(tab==='journal')h.unread=0;
+    const jr=(h.journal||[]).slice().reverse();
+    const storyHtml=CHAPTERS.map((C,i)=>{
+      const s=h.story[i];
+      if(s){const o=C.o[s.o];return `<div class="chap"><div class="chead">Chapter ${i+1}: ${C.n} \u2014 ${o.l}</div><p>${esc(fillStory(o.s,h))}</p><div class="cinfo">Trait: <b>${o.t}</b>. ${o.d}</div></div>`}
+      return `<div class="chap lock">Chapter ${i+1}: ??? Unlocks after ${C.at} finished quest${C.at>1?'s':''} (${Math.min(h.quests||0,C.at)}/${C.at}). It writes itself.</div>`;
+    }).join('');
+    const journalHtml=jr.length?jr.map((j,i)=>`<div class="jent ${j.k==='story'?'story':''}${tab==='journal'&&i<unread?' fresh':''}"><div class="jday">Day ${j.d}${j.k==='story'?' \u00b7 Chapter':j.k==='quest'?' \u00b7 Quest':''}</div><p>${esc(j.t)}</p></div>`).join(''):'<div class="empty">Nothing written yet. Entries appear as this hero quests.</div>';
     body=`<h2>${esc(h.name)}</h2>${heroCard(h,'',false,true)}
-      <p class="cinfo">Reputation: <b class="${rt.cls}">${rt.n}</b> (${(h.rep||0)>0?'+':''}${h.rep||0}) · Leaning: <b>${alignTitle(h)}</b> · ${h.quests||0} quests finished. Wins raise reputation and losses lower it.</p>
-      <div class="stack">${CHAPTERS.map((C,i)=>{
-        const s=h.story[i];
-        if(s){const o=C.o[s.o];return `<div class="chap"><div class="chead">Chapter ${i+1}: ${C.n} — ${o.l}</div><p>${esc(fillStory(o.s,h))}</p><div class="cinfo">Trait: <b>${o.t}</b>. ${o.d}</div></div>`}
-        if(i===h.story.length&&h.pend)return `<div class="chap pend"><div class="chead">Chapter ${i+1}: ${C.n}</div><p class="cinfo">This chapter is ready to be written.</p><div><button class="btn primary small" data-act="story" data-a="${h.id}">Write this chapter</button></div></div>`;
-        return `<div class="chap lock">Chapter ${i+1}: ??? Unlocks after ${C.at} finished quest${C.at>1?'s':''} (${Math.min(h.quests||0,C.at)}/${C.at}).</div>`;
-      }).join('')}</div>
+      <p class="cinfo">Reputation: <b class="${rt.cls}">${rt.n}</b> (${(h.rep||0)>0?'+':''}${h.rep||0}) \u00b7 Leaning: <b>${alignTitle(h)}</b> \u00b7 ${h.quests||0} quests finished. Wins raise reputation and losses lower it. Backstory chapters write themselves as heroes finish quests, and lean on how the hero is regarded.</p>
+      <div class="mtabs"><button class="mtab ${tab==='story'?'on':''}" data-act="dtab" data-a="story">Backstory</button><button class="mtab ${tab==='journal'?'on':''}" data-act="dtab" data-a="journal">Journal${unread&&tab!=='journal'?` (${unread} new)`:''}</button></div>
+      <div class="stack">${tab==='journal'?journalHtml:storyHtml}</div>
       <div class="mact"><button class="btn" data-act="close">Close</button></div>`;
-  }else if(m.type==='story'){
-    const h=hero(m.hid);
-    if(!h||!h.pend){ui.modal=null;return ''}
-    const ci=h.story.length,C=CHAPTERS[ci];
-    const opts=C.o.map((o,i)=>({o,i})).filter(x=>!x.o.k||(x.o.k==='hi'&&h.rep>=40)||(x.o.k==='lo'&&h.rep<=-30));
-    body=`<h2>Chapter ${ci+1}: ${C.n}</h2>
-      <p>${esc(fillStory(C.intro,h))}</p>
-      <p class="cinfo">Choose how this part of ${esc(h.name.split(' ')[0])}’s story reads. It becomes permanent, grants a trait and moves their reputation. A very high or very low reputation opens up different choices.</p>
-      <div class="stack">${opts.map(({o,i})=>`<button class="sopt" data-act="storychoose" data-a="${h.id}" data-b="${i}">
-        <b>${o.l}${o.k==='hi'?' <span class="tag vir">Legend</span>':o.k==='lo'?' <span class="tag aff">Infamy</span>':''}</b>
-        <span class="stext">${esc(fillStory(o.s,h))}</span>
-        <span class="cinfo">Trait: <b>${o.t}</b>. ${o.d} Reputation ${o.r>=0?'+':''}${o.r}. Leans ${o.m>0?'honorable':o.m<0?'ruthless':'pragmatic'}.</span></button>`).join('')}</div>
-      <div class="mact"><button class="btn" data-act="later" data-a="${h.id}">Decide later</button></div>`;dismiss=false;
-  }else if(m.type==='storydone'){
-    const h=hero(m.hid),o=CHAPTERS[m.ci].o[m.oi];
-    body=`<h2>${esc(o.l)}</h2><p>${esc(fillStory(o.s,h))}</p>
-      <p class="cinfo">${esc(h.name.split(' ')[0])} gains <b>${o.t}</b>. ${o.d}${h.pend?' Another chapter is already waiting.':''}</p>
-      ${m.extra.length?`<ul class="ev">${m.extra.map(e=>`<li class="${e.k}">${esc(e.t)}</li>`).join('')}</ul>`:''}
-      <div class="mact"><button class="btn primary" data-act="next">Continue</button></div>`;dismiss=false;
   }else if(m.type==='victory'){
     const B=BOSSES[S.boss];dark=true;
     body=`<h2>${esc(B.n)} is slain</h2>
@@ -1331,7 +1399,7 @@ function render(){
     return;
   }
   const y=window.scrollY;
-  const tabs=[['quests','Quests',S.board.length],['parties','Parties',S.parties.length],['roster','Roster',S.heroes.length,S.heroes.filter(h=>h.pend).length],['tavern','Tavern',null],['guild','Guild',null]];
+  const tabs=[['quests','Quests',S.board.length],['parties','Parties',S.parties.length],['roster','Roster',S.heroes.length,S.heroes.filter(h=>h.unread).length],['tavern','Tavern',null],['guild','Guild',null]];
   document.getElementById('app').innerHTML=`
     <div class="bar"><div class="logo">Guildmaster</div>
       <div class="chip"><small>Day</small><b>${S.day}</b></div>
@@ -1347,7 +1415,7 @@ function render(){
       return '';
     })()}
     ${renderRank()}
-    <nav class="tabs">${tabs.map(t=>`<button class="tab ${ui.tab===t[0]?'on':''}" data-act="tab" data-a="${t[0]}">${t[1]}${t[2]!==null?`<em>${t[2]}</em>`:''}${t[3]?'<span class="pill good" style="margin-left:6px">Story</span>':''}</button>`).join('')}</nav>
+    <nav class="tabs">${tabs.map(t=>`<button class="tab ${ui.tab===t[0]?'on':''}" data-act="tab" data-a="${t[0]}">${t[1]}${t[2]!==null?`<em>${t[2]}</em>`:''}${t[3]?'<span class="pill good" style="margin-left:6px">New entry</span>':''}</button>`).join('')}</nav>
     ${renderTab()}
     <section class="ledger"><h2>Guild ledger</h2><ol>${S.log.slice(0,8).map(l=>`<li><span>Day ${l.d}</span>${esc(l.t)}</li>`).join('')}</ol></section>
     <div class="foot"><button class="btn small" data-act="hardcore">Heroes can die: ${S.hardcore?'ON':'OFF'}</button><button class="btn small" data-act="mode">Time: ${ui.mode==='live'?'Live':'Manual (End Day)'}</button><button class="btn small" data-act="help">How to play</button><button class="btn small" data-act="legacy">Legacy</button><button class="btn small" data-act="retire">Retire run</button></div>
@@ -1368,9 +1436,9 @@ function tickUI(){
   if(f)f.style.width=ui.frac*100+'%';
   S.parties.forEach(p=>{
     if(!p.mission)return;
-    const v=progress(p)+'%';
-    document.querySelectorAll(`.runner[data-pid="${p.id}"]`).forEach(el=>el.style.left=v);
-    document.querySelectorAll(`.fill[data-pid="${p.id}"]`).forEach(el=>el.style.width=v);
+    const pf=progress(p)/100,pos=bez(route(p.mission.quest.place),pf);
+    document.querySelectorAll(`.mrun[data-pid="${p.id}"]`).forEach(el=>el.style.transform=`translate(${pos.x.toFixed(1)}px,${pos.y.toFixed(1)}px)`);
+    document.querySelectorAll(`.rdone[data-pid="${p.id}"]`).forEach(el=>el.setAttribute('stroke-dasharray',`${pf.toFixed(3)} 2`));
   });
   const n=ui.toasts.length;
   ui.toasts=ui.toasts.filter(t=>t.until>Date.now());
@@ -1428,7 +1496,6 @@ document.addEventListener('click',e=>{
       }
       ui.modal=null;break;
     }
-    case 'decide':decide(+a);break;
     case 'addslot':ui.modal={type:'addmember',pid:+a};break;
     case 'addhero':{
       const p=party(+a),h=hero(+b);
@@ -1444,7 +1511,7 @@ document.addEventListener('click',e=>{
     case 'hire':{
       const h=S.tavern.find(x=>x.id==a);
       if(h&&S.gold>=h.cost&&S.heroes.length<rosterCap()){
-        S.gold-=h.cost;S.tavern=S.tavern.filter(x=>x!==h);delete h.cost;S.heroes.push(h);
+        S.gold-=h.cost;S.tavern=S.tavern.filter(x=>x!==h);delete h.cost;S.heroes.push(h);jot(h,`Hired from the tavern for ${S.guildName||'the guild'}.`,'moment',true);
         S.log.unshift({d:S.day,t:`Hired ${h.name}, a ${TIERS[h.tier].n} ${CLASSES[h.cls].n}.`});
       }
       break;
@@ -1461,14 +1528,7 @@ document.addEventListener('click',e=>{
     }
     case 'relax':ui.modal={type:'relax',hid:+a};break;
     case 'dossier':ui.modal={type:'dossier',hid:+a};break;
-    case 'story':ui.modal={type:'story',hid:+a,from:'dossier'};break;
-    case 'storychoose':{const h=hero(+a);if(h&&h.pend)chooseChapter(h,+b);break}
-    case 'later':{
-      const from=ui.modal&&ui.modal.from;
-      S.storyQ=S.storyQ.filter(id=>id!==+a);
-      if(from==='dossier')ui.modal={type:'dossier',hid:+a};else nextModal();
-      break;
-    }
+    case 'dtab':if(ui.modal&&ui.modal.type==='dossier')ui.modal.tab=a;break;
     case 'relief':{
       const h=hero(+a),o=h&&reliefOpts(h).find(x=>x.id===b);
       if(h&&o&&S.gold>=o.cost&&status(h)!=='questing'){
@@ -1486,7 +1546,7 @@ document.addEventListener('click',e=>{
     }
     case 'accept':{
       const o=S.offers[0];
-      if(o&&S.heroes.length<rosterCap()){S.heroes.push(o.hero);S.offers.shift();S.log.unshift({d:S.day,t:`${o.hero.name} joined the guild.`});nextModal()}
+      if(o&&S.heroes.length<rosterCap()){S.heroes.push(o.hero);jot(o.hero,`Joined the guild. ${o.hero.name.split(' ')[0]} ${o.why.replace(/, no fee\.?$/,'')}.`,'moment',true);S.offers.shift();S.log.unshift({d:S.day,t:`${o.hero.name} joined the guild.`});nextModal()}
       break;
     }
     case 'decline':S.offers.shift();nextModal();break;
@@ -1516,9 +1576,17 @@ try{
   if(raw){const d=JSON.parse(raw);if(d&&d.v===2&&Array.isArray(d.heroes)){S=d;loaded=true}}
 }catch(e){}
 if(loaded){
-  S.storyQ=S.storyQ||[];
   if(S.nextCrisis===undefined)S.nextCrisis=S.day+ri(10,16);
-  S.heroes.forEach(h=>{h.rep=h.rep||0;h.quests=h.quests||0;h.story=h.story||[];h.pend=!!h.pend});
+  S.heroes.forEach(h=>{h.rep=h.rep||0;h.quests=h.quests||0;h.story=h.story||[];h.journal=h.journal||[];h.unread=h.unread||0;delete h.pend});
+  if(!S.setup){
+    const ev0=[];
+    S.parties.forEach(p=>{
+      if(!p.mission)return;
+      (p.mission.ev||[]).filter(x=>x.pending).forEach(me=>runDecision(p,me.did,me.day,ev0,me));
+    });
+    S.pending=[];S.storyQ=[];
+    S.heroes.forEach(h=>checkStory(h,ev0));
+  }
   S.fallen.forEach(f=>{f.title=f.title||'';f.rep=f.rep||'Unknown'});
 }
 if(!loaded){newGame();ui.introAfter=true}
