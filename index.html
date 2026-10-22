@@ -195,6 +195,35 @@ i.good{background:var(--good)} i.warn{background:var(--warn)} i.bad{background:v
 .opt small{color:var(--mute);white-space:nowrap}
 .opt small.safe{color:var(--good)} .opt small.risky{color:var(--bad)} .opt small.even{color:var(--warn)}
 .opt small.need{color:var(--mute)}
+/* ledger */
+.ldayhd{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--brass);font-weight:700;margin:14px 0 4px}
+.lrow{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.ltag{flex:none;width:58px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);padding-top:2px}
+.ltxt{min-width:0;overflow-wrap:anywhere}
+.gstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+.gstats div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column}
+.gstats small{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--mute)}
+.gstats b{font-size:22px}
+.gchart{position:relative;max-width:560px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px}
+.gchart svg{display:block;width:100%;height:auto}
+.ggrid{stroke:var(--line);stroke-width:1}
+.gtxt{fill:var(--mute);font:10px var(--body)}
+.gline{fill:none;stroke:var(--brass);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.garea{fill:var(--brass);opacity:.14}
+.gend,.gdot{fill:var(--brass);stroke:var(--panel);stroke-width:2}
+.gx{stroke:var(--mute);stroke-width:1;stroke-dasharray:3 3}
+.gtip{position:absolute;pointer-events:none;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:12px;white-space:nowrap}
+.gbreak{display:flex;flex-direction:column;gap:8px;max-width:560px}
+.gb{display:grid;grid-template-columns:minmax(0,150px) 1fr auto;gap:10px;align-items:center;font-size:14px}
+.gb span{color:var(--mute)}
+.gbar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden}
+.gbar i{display:block;height:100%}
+.gbar i.in{background:var(--good)} .gbar i.out{background:var(--bad)}
+.gtblwrap{overflow-x:auto}
+.gtbl{width:100%;border-collapse:collapse;font-size:14px;max-width:700px}
+.gtbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);padding:6px 8px;border-bottom:1px solid var(--line)}
+.gtbl td{padding:6px 8px;border-bottom:1px solid var(--line)}
+.gtbl .r{text-align:right}
 /* map */
 .qlayout{display:grid;grid-template-columns:minmax(0,470px) minmax(0,1fr);gap:18px;align-items:start}
 @media (max-width:860px){.qlayout{grid-template-columns:minmax(0,1fr)}}
@@ -636,7 +665,7 @@ function foundGuild(){
   S.heroes.slice(0,4).forEach(h=>{h.party=S.parties[0].id;S.parties[0].members.push(h.id)});
   S.setup=false;
   S.heroes.forEach(h=>jot(h,`Joined ${S.guildName} as a founding member.`,'moment',true));
-  S.log.unshift({d:1,t:`${S.guildName} opens its doors with ${S.heroes.map(h=>h.name.split(' ')[0]).join(', ')}. Era: ${era().n}.`});
+  note(`${S.guildName} opens its doors with ${S.heroes.map(h=>h.name.split(' ')[0]).join(', ')}. Era: ${era().n}.`,'world',1);
   ui.create=null;
   if(ui.introAfter){ui.modal={type:'intro'};ui.introAfter=false}
 }
@@ -745,6 +774,7 @@ function newGame(){
     stats:{won:0,lost:0,fallen:0},hardcore:true,over:false,nextCrisis:ri(12,18),vic:0,paid:false,nid:1,
     eraId:pick(ERAS).id,boss:ri(0,BOSSES.length-1),bossSpawned:false,bld:{chapel:perk('chapel'),barracks:0,infirmary:0,training:0}};
   S.rankSeen=rank();
+  S.ledger=[{d:1,n:S.gold,why:'Starting funds',c:'open',bal:S.gold}];
   S.setup=true;
   ensureParties();
   fillBoard();refreshTavern(5);
@@ -772,6 +802,25 @@ function shiftRep(h,d,ev){
     jot(h,`The guild now sees ${h.name.split(' ')[0]} as ${after}.`,'moment');
   }
 }
+const LCATS={quest:'Quests',hero:'Heroes',gold:'Gold',world:'World'};
+function guessCat(t){
+  if(/set out|completed|failed|crushed|crisis|quest|expired|boss|slain|slay/i.test(t))return 'quest';
+  if(/hired|released|joined|level|injur|breaks|recover|reputation|seen as|chapter|opened up|died|relax|rises|journal/i.test(t))return 'hero';
+  if(/gold|wage|paid|upgrad|quit/i.test(t))return 'gold';
+  return 'world';
+}
+const catOf=e=>e.c||guessCat(e.t);
+function note(t,c,day){
+  S.log.unshift({d:day||S.day,c:c||guessCat(t),t});
+  if(S.log.length>500)S.log.length=500;
+}
+function gold(n,why,c){
+  if(!n)return;
+  S.gold+=n;
+  S.ledger=S.ledger||[];
+  S.ledger.unshift({d:S.day,n,why,c:c||'other',bal:S.gold});
+  if(S.ledger.length>1000)S.ledger.length=1000;
+}
 function jot(h,t,k,quiet){
   h.journal=h.journal||[];
   h.journal.push({d:S.day,k:k||'moment',t});
@@ -790,7 +839,7 @@ function autoChapter(h,ev){
   if(o.fx.wage)h.wage=Math.max(1,Math.round(h.wage*o.fx.wage));
   jot(h,`Chapter ${ci+1}, ${C.n}: ${o.l}. ${fillStory(o.s,h)} (Gained the trait ${o.t}.)`,'story');
   shiftRep(h,o.r,ev||[]);
-  S.log.unshift({d:S.day,t:`${h.name} opened up about their past: ${o.l}.`});
+  note(`${h.name} opened up about their past: ${o.l}.`);
   if(ev)ev.push({k:'lvl',t:`${h.name}'s journal has a new entry: "${o.l}" (${o.t}).`});
 }
 function checkStory(h,ev){
@@ -855,7 +904,7 @@ function resolve(p,ev){
     const rn=Math.round(q.renown*ms.reduce((a,h)=>a*fxm(h,'renown'),1));
     const selfish=ms.filter(h=>h.affl==='selfish').length;
     if(selfish){g=Math.round(g*(1-.1*selfish));ev.push({k:'loss',t:`A selfish party member pocketed some of the loot.`})}
-    S.gold+=g;S.stats.won++;
+    gold(g,`Reward: ${q.title}`,'reward');S.stats.won++;
     ms.forEach(h=>{h.wins++;h.quests=(h.quests||0)+1;jot(h,`${great?'Crushed':'Completed'} "${q.title}" with ${p.name}.`,'quest');shiftRep(h,Math.round(1+q.d*.5)+(great?2:0)+(q.boss?10:0),ev);addXp(h,q.xp,ev)});
     ev.push({k:'win',t:`${p.name} ${great?'crushed':'completed'} "${q.title}" (${pct}% final odds). +${g} gold, +${rn} renown.`});
     gainRenown(rn,ev);
@@ -926,7 +975,7 @@ function runDecision(p,i,e,ev,me){
   if(r[1])ms.forEach(h=>addStress(h,r[1],ms,ev));
   const actor=o.c?ms.find(h=>h.cls===o.c):pick(ms);
   let t=`${o.c?`${fn(actor)} takes charge. `:''}${r[2]}`;
-  if(r[3]){const g=Math.round(r[3]*m.quest.d);S.gold+=g;t+=` +${g} gold.`}
+  if(r[3]){const g=Math.round(r[3]*m.quest.d);gold(g,`Found on the road (${m.quest.title})`,'reward');t+=` +${g} gold.`}
   const entry={day:e,icon:D.icon,tone,t:`${D.title}. ${t}`};
   if(me)Object.assign(me,entry,{pending:false});else m.ev.push(entry);
   ev.push({k:tone==='good'?'win':tone==='bad'?'loss':'info',m:true,t:`${p.name}: ${D.title}. ${t}`});
@@ -940,7 +989,7 @@ function endDay(){
     if(h.rest>0)h.rest--;
   });
   const wages=Math.round(S.heroes.reduce((s,h)=>s+h.wage,0)*efx('wage',1));
-  S.gold-=wages;
+  gold(-wages,'Daily wages','wages');
   if(wages)ev.push({k:'info',q:true,t:`Paid ${wages} gold in wages.`});
   if(S.gold<0){
     const idle=S.heroes.filter(h=>status(h)==='ready');
@@ -982,8 +1031,7 @@ function endDay(){
   fillBoard();refreshTavern(2);
   S.day++;
   if(!S.heroes.length&&S.gold<50){S.over=true;ev.push({k:'death',t:'You have no heroes and no gold to hire more. The guild is finished.'})}
-  ev.forEach(e=>{if(!e.m)S.log.unshift({d:S.day-1,t:e.t})});
-  S.log=S.log.slice(0,60);
+  ev.forEach(e=>{if(!e.m)note(e.t,null,S.day-1)});
   const shown=ev.filter(e=>!e.q);
   if(shown.some(e=>e.k==='death'||e.k==='rank')||(ui.mode!=='live'&&shown.length))ui.modal={type:'report',ev:shown};
   else{shown.forEach(pushToast);nextModal()}
@@ -1195,6 +1243,87 @@ function renderRank(){
     <div class="cinfo">${S.renown}${next?` / ${next}`:''} renown${next?'':' (max rank)'}</div></div>
     <div class="rinfo"><span class="era" title="${esc(era().d)}">Era: <b>${era().n}</b></span><span>Quest danger now: <b>${dmin}–${dmax}</b></span><span>Best heroes in tavern: <b>${TIERS[TIER_CAP[r]].n}</b></span><span>Roster: <b>${S.heroes.length}/${rosterCap()}</b></span><span>Record: <b>${S.stats.won}W ${S.stats.lost}L</b></span>${unlock}</div></section>`;
 }
+/* ---------- the ledger: full event history and a gold account ---------- */
+const GCATS={reward:'Quest rewards and loot',wages:'Wages',hiring:'Hiring',upgrade:'Guild upgrades',relief:'Rest and relief',other:'Other'};
+function ledgerRows(){
+  const q=(ui.lq||'').trim().toLowerCase(),f=ui.lf||'all';
+  return S.log.filter(e=>(f==='all'||catOf(e)===f)&&(!q||e.t.toLowerCase().includes(q)));
+}
+function eventsHtml(){
+  const rows=ledgerRows(),shown=rows.slice(0,ui.llim||60);
+  let html='',day=null;
+  shown.forEach(e=>{
+    if(e.d!==day){day=e.d;html+=`<div class="ldayhd">Day ${e.d}</div>`}
+    const c=catOf(e);
+    html+=`<div class="lrow"><span class="ltag">${LCATS[c]}</span><span class="ltxt">${esc(e.t)}</span></div>`;
+  });
+  if(!shown.length)html='<div class="empty">Nothing matches. Try another filter.</div>';
+  if(rows.length>shown.length)html+=`<div class="mact"><button class="btn" data-act="lmore">Show older entries (${rows.length-shown.length} more)</button></div>`;
+  return html;
+}
+function balanceSeries(){
+  const L=(S.ledger||[]).slice().reverse(),byDay={};
+  L.forEach(x=>{byDay[x.d]=x.bal});
+  const first=L.length?L[0].d:S.day,pts=[];
+  let last=L.length?L[0].bal-L[0].n:S.gold;
+  for(let d=first;d<=S.day;d++){if(byDay[d]!==undefined)last=byDay[d];pts.push({d,v:d===S.day?S.gold:last})}
+  const step=Math.ceil(pts.length/100);
+  return pts.filter((p,i)=>i%step===0||i===pts.length-1);
+}
+function goldChart(pts){
+  const W=400,H=150,L=44,R=12,T=14,B=22;
+  if(pts.length<2)return '<div class="empty">The chart appears once a few days have passed.</div>';
+  let lo=Math.min(...pts.map(p=>p.v)),hi=Math.max(...pts.map(p=>p.v));
+  if(hi===lo)hi=lo+1;
+  const pad=(hi-lo)*.08;lo-=pad;hi+=pad;
+  const d0=pts[0].d,d1=pts[pts.length-1].d||d0+1;
+  const X=d=>L+(d-d0)/Math.max(1,d1-d0)*(W-L-R),Y=v=>T+(1-(v-lo)/(hi-lo))*(H-T-B);
+  const line=pts.map((p,i)=>`${i?'L':'M'}${X(p.d).toFixed(1)} ${Y(p.v).toFixed(1)}`).join('');
+  const area=`${line}L${X(d1).toFixed(1)} ${H-B}L${X(d0).toFixed(1)} ${H-B}Z`;
+  const ticks=[lo+pad,(lo+hi)/2,hi-pad].map(v=>Math.round(v));
+  const last=pts[pts.length-1];
+  ui.gpts=pts;
+  return `<div class="gchart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gold balance by day, from ${Math.round(pts[0].v)} to ${last.v}">
+    ${ticks.map(v=>`<line class="ggrid" x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text class="gtxt" x="${L-6}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end">${v}</text>`).join('')}
+    <text class="gtxt" x="${L}" y="${H-6}">Day ${d0}</text><text class="gtxt" x="${W-R}" y="${H-6}" text-anchor="end">Day ${d1}</text>
+    <path class="garea" d="${area}"/><path class="gline" d="${line}"/>
+    <line class="gx" id="gx" y1="${T}" y2="${H-B}" x1="0" x2="0" style="display:none"/>
+    <circle class="gdot" id="gdot" r="4" cx="0" cy="0" style="display:none"/>
+    <circle class="gend" cx="${X(last.d).toFixed(1)}" cy="${Y(last.v).toFixed(1)}" r="4"/>
+    <rect id="ghit" x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent"/>
+  </svg><div class="gtip" id="gtip" style="display:none"></div></div>`;
+}
+function goldHtml(){
+  const L=(S.ledger||[]).filter(x=>x.c!=='open');
+  const inc=L.filter(x=>x.n>0).reduce((a,x)=>a+x.n,0),out=-L.filter(x=>x.n<0).reduce((a,x)=>a+x.n,0);
+  const by={};L.forEach(x=>{by[x.c]=(by[x.c]||0)+x.n});
+  const cats=Object.keys(GCATS).filter(k=>by[k]),mx=Math.max(1,...cats.map(k=>Math.abs(by[k])));
+  const rows=(S.ledger||[]).slice(0,ui.glim||30);
+  return `<div class="gstats">
+      <div><small>Balance</small><b class="${S.gold<0?'neg':''}">${S.gold}</b></div>
+      <div><small>Earned</small><b>+${inc}</b></div>
+      <div><small>Spent</small><b>−${out}</b></div>
+      <div><small>Net</small><b class="${inc-out<0?'neg':''}">${inc-out>0?'+':inc-out<0?'−':''}${Math.abs(inc-out)}</b></div>
+    </div>
+    <div class="sect"><h2>Balance by day</h2><span class="cinfo">Hover the chart to read a day.</span></div>
+    ${goldChart(balanceSeries())}
+    <div class="sect"><h2>Where it goes</h2></div>
+    <div class="gbreak">${cats.map(k=>`<div class="gb"><span>${GCATS[k]}</span><div class="gbar"><i class="${by[k]<0?'out':'in'}" style="width:${Math.abs(by[k])/mx*100}%"></i></div><b>${by[k]>0?'+':'−'}${Math.abs(by[k])}</b></div>`).join('')||'<div class="cinfo">No gold has moved yet.</div>'}</div>
+    <div class="sect"><h2>Every transaction</h2></div>
+    <div class="gtblwrap"><table class="gtbl"><thead><tr><th>Day</th><th>What</th><th class="r">Amount</th><th class="r">Balance</th></tr></thead><tbody>
+      ${rows.map(x=>`<tr><td>${x.d}</td><td>${esc(x.why)}</td><td class="r ${x.n<0?'bad':'good'}">${x.c==='open'?'':x.n>0?'+':'−'}${x.c==='open'?x.n:Math.abs(x.n)}</td><td class="r">${x.bal}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${(S.ledger||[]).length>rows.length?`<div class="mact"><button class="btn" data-act="gmore">Show older transactions</button></div>`:''}`;
+}
+function renderLedger(){
+  const v=ui.lv||'events',f=ui.lf||'all';
+  const counts={all:S.log.length};Object.keys(LCATS).forEach(k=>counts[k]=S.log.filter(e=>catOf(e)===k).length);
+  return `<div class="sect"><h2>Ledger</h2><span class="cinfo">Everything your guild has done, and every coin that moved.</span></div>
+    <div class="mtabs" style="margin-bottom:14px"><button class="mtab ${v==='events'?'on':''}" data-act="lv" data-a="events">Events</button><button class="mtab ${v==='gold'?'on':''}" data-act="lv" data-a="gold">Gold</button></div>
+    ${v==='gold'?goldHtml():`<div class="chips" style="margin-bottom:10px">${['all',...Object.keys(LCATS)].map(k=>`<button class="chipb${f===k?' on':''}" data-act="lf" data-a="${k}">${k==='all'?'All':LCATS[k]} (${counts[k]})</button>`).join('')}</div>
+      <input class="in" id="lsearch" data-f="lsearch" placeholder="Search the ledger" value="${esc(ui.lq||'')}" aria-label="Search the ledger" style="margin-bottom:10px">
+      <div id="lbody">${eventsHtml()}</div>`}`;
+}
 function renderTab(){
   if(ui.tab==='quests'){
     const out=S.parties.filter(p=>p.mission);
@@ -1227,6 +1356,7 @@ function renderTab(){
       }).join('')}</div>`:`<div class="empty">Nobody works for you. Visit the Tavern.</div>`}
       ${S.fallen.length?`<div class="sect"><h2>Fallen</h2></div><div class="stack">${S.fallen.slice().reverse().map(f=>`<div class="cinfo">${esc(f.name)}${f.title?` (${f.title}, ${f.rep})`:''}, ${TIERS[f.tier].n} ${CLASSES[f.cls].n} (Lv ${f.level}), died on day ${f.day} during "${esc(f.quest)}".</div>`).join('')}</div>`:''}`;
   }
+  if(ui.tab==='ledger')return renderLedger();
   if(ui.tab==='guild'){
     const B=BOSSES[S.boss];
     return `<div class="sect"><h2>Guild hall</h2><span class="cinfo">Upgrades last for this run.</span></div>
@@ -1411,7 +1541,7 @@ function render(){
     return;
   }
   const y=window.scrollY;
-  const tabs=[['quests','Quests',S.board.length],['parties','Parties',S.parties.length],['roster','Roster',S.heroes.length,S.heroes.filter(h=>h.unread).length],['tavern','Tavern',null],['guild','Guild',null]];
+  const tabs=[['quests','Quests',S.board.length],['parties','Parties',S.parties.length],['roster','Roster',S.heroes.length,S.heroes.filter(h=>h.unread).length],['tavern','Tavern',null],['guild','Guild',null],['ledger','Ledger',null]];
   document.getElementById('app').innerHTML=`
     <div class="bar"><div class="logo">Guildmaster</div>
       <div class="chip"><small>Day</small><b>${S.day}</b></div>
@@ -1429,7 +1559,7 @@ function render(){
     ${renderRank()}
     <nav class="tabs">${tabs.map(t=>`<button class="tab ${ui.tab===t[0]?'on':''}" data-act="tab" data-a="${t[0]}">${t[1]}${t[2]!==null?`<em>${t[2]}</em>`:''}${t[3]?'<span class="pill good" style="margin-left:6px">New entry</span>':''}</button>`).join('')}</nav>
     ${renderTab()}
-    <section class="ledger"><h2>Guild ledger</h2><ol>${S.log.slice(0,8).map(l=>`<li><span>Day ${l.d}</span>${esc(l.t)}</li>`).join('')}</ol></section>
+    <section class="ledger"><h2>Recent news</h2><ol>${S.log.slice(0,6).map(l=>`<li><span>Day ${l.d}</span>${esc(l.t)}</li>`).join('')}</ol><button class="btn small" style="margin-top:10px" data-act="tab" data-a="ledger">Open the full ledger</button></section>
     <div class="foot"><button class="btn small" data-act="hardcore">Heroes can die: ${S.hardcore?'ON':'OFF'}</button><button class="btn small" data-act="mode">Time: ${ui.mode==='live'?'Live':'Manual (End Day)'}</button><button class="btn small" data-act="help">How to play</button><button class="btn small" data-act="legacy">Legacy</button><button class="btn small" data-act="retire">Retire run</button></div>
     ${renderModal()}`;
   window.scrollTo(0,y);
@@ -1487,6 +1617,24 @@ function zoomBy(f,fx,fy){
     zoomBy(e.deltaY<0?1.2:1/1.2,(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);
   },{passive:false});
 })();
+
+document.addEventListener('pointermove',e=>{
+  const hit=e.target.id==='ghit'?e.target:null,tip=document.getElementById('gtip');
+  if(!tip)return;
+  if(!hit||!ui.gpts){tip.style.display='none';const a=document.getElementById('gx'),b=document.getElementById('gdot');if(a)a.style.display='none';if(b)b.style.display='none';return}
+  const r=hit.getBoundingClientRect(),f=clamp((e.clientX-r.left)/r.width,0,1),pts=ui.gpts;
+  const i=Math.round(f*(pts.length-1)),p=pts[i];
+  const sv=hit.ownerSVGElement,W=400,H=150,L=44,R=12,T=14,B=22;
+  const lo0=Math.min(...pts.map(q=>q.v)),hi0=Math.max(...pts.map(q=>q.v))||1,span=(hi0===lo0?1:hi0-lo0),pad=span*.08,lo=lo0-pad,hi=hi0+pad+(hi0===lo0?1:0);
+  const x=L+(p.d-pts[0].d)/Math.max(1,pts[pts.length-1].d-pts[0].d)*(W-L-R),y=T+(1-(p.v-lo)/(hi-lo))*(H-T-B);
+  const gx=document.getElementById('gx'),gd=document.getElementById('gdot');
+  gx.setAttribute('x1',x);gx.setAttribute('x2',x);gx.style.display='';
+  gd.setAttribute('cx',x);gd.setAttribute('cy',y);gd.style.display='';
+  tip.style.display='block';tip.textContent=`Day ${p.d}: ${p.v} gold`;
+  const box=sv.getBoundingClientRect();
+  tip.style.left=Math.min(box.width-110,Math.max(0,x/W*box.width-50))+'px';
+  tip.style.top='0px';
+});
 
 /* ---------- live clock ---------- */
 const DAY_MS=7000;
@@ -1549,6 +1697,10 @@ document.addEventListener('click',e=>{
       try{localStorage.setItem(MODEKEY,ui.mode)}catch(e){}
       break;
     case 'mz':if(a==='fit')setView(0,0,MAPW);else zoomBy(a==='in'?1.5:1/1.5);break;
+    case 'lv':ui.lv=a;break;
+    case 'lf':ui.lf=a;ui.llim=60;break;
+    case 'lmore':ui.llim=(ui.llim||60)+60;break;
+    case 'gmore':ui.glim=(ui.glim||30)+40;break;
     case 'speed':if(a==='0')ui.paused=true;else{ui.paused=false;ui.speed=+a}break;
     case 'assign':ui.modal={type:'assign',qid:a};break;
     case 'send':{
@@ -1556,7 +1708,7 @@ document.addEventListener('click',e=>{
       if(q&&p&&!p.mission&&p.members.length&&!members(p).some(unavailable)){
         p.mission={quest:q,daysLeft:q.days,total:q.days,mom:0,used:[],ev:[]};
         S.board=S.board.filter(x=>x!==q);
-        S.log.unshift({d:S.day,t:`${p.name} set out on "${q.title}".`});
+        note(`${p.name} set out on "${q.title}".`);
       }
       ui.modal=null;break;
     }
@@ -1575,18 +1727,18 @@ document.addEventListener('click',e=>{
     case 'hire':{
       const h=S.tavern.find(x=>x.id==a);
       if(h&&S.gold>=h.cost&&S.heroes.length<rosterCap()){
-        S.gold-=h.cost;S.tavern=S.tavern.filter(x=>x!==h);delete h.cost;S.heroes.push(h);jot(h,`Hired from the tavern for ${S.guildName||'the guild'}.`,'moment',true);
-        S.log.unshift({d:S.day,t:`Hired ${h.name}, a ${TIERS[h.tier].n} ${CLASSES[h.cls].n}.`});
+        gold(-h.cost,`Hired ${h.name}`,'hiring');S.tavern=S.tavern.filter(x=>x!==h);delete h.cost;S.heroes.push(h);jot(h,`Hired from the tavern for ${S.guildName||'the guild'}.`,'moment',true);
+        note(`Hired ${h.name}, a ${TIERS[h.tier].n} ${CLASSES[h.cls].n}.`);
       }
       break;
     }
-    case 'reroll':if(S.gold>=20){S.gold-=20;S.tavern=[];refreshTavern(0)}break;
+    case 'reroll':if(S.gold>=20){gold(-20,'New faces at the tavern','hiring');S.tavern=[];refreshTavern(0)}break;
     case 'release':{
       const h=hero(+a);
       if(ui.confirm===h.id){
         S.heroes=S.heroes.filter(x=>x!==h);
         S.parties.forEach(p=>p.members=p.members.filter(id=>id!==h.id));
-        S.log.unshift({d:S.day,t:`Released ${h.name}.`});ui.confirm=null;
+        note(`Released ${h.name}.`);ui.confirm=null;
       }else ui.confirm=h.id;
       break;
     }
@@ -1596,21 +1748,21 @@ document.addEventListener('click',e=>{
     case 'relief':{
       const h=hero(+a),o=h&&reliefOpts(h).find(x=>x.id===b);
       if(h&&o&&S.gold>=o.cost&&status(h)!=='questing'){
-        S.gold-=o.cost;h.rest=1;
+        gold(-o.cost,`${h.name}: ${o.n}`,'relief');h.rest=1;
         const ev=[];addStress(h,-o.amt,[h],ev);
-        S.log.unshift({d:S.day,t:`${h.name} takes a day to relax (${o.n}). Stress -${o.amt}.`});
-        ev.forEach(x=>S.log.unshift({d:S.day,t:x.t}));
+        note(`${h.name} takes a day to relax (${o.n}). Stress -${o.amt}.`);
+        ev.forEach(x=>note(x.t));
       }
       ui.modal=null;break;
     }
     case 'build':{
       const b0=BLD.find(x=>x.id===a),cost=b0.cost[bl(a)];
-      if(cost!==undefined&&S.gold>=cost){S.gold-=cost;S.bld[a]=bl(a)+1;S.log.unshift({d:S.day,t:`${b0.n} upgraded to level ${S.bld[a]}.`})}
+      if(cost!==undefined&&S.gold>=cost){gold(-cost,`Upgrade: ${b0.n}`,'upgrade');S.bld[a]=bl(a)+1;note(`${b0.n} upgraded to level ${S.bld[a]}.`)}
       break;
     }
     case 'accept':{
       const o=S.offers[0];
-      if(o&&S.heroes.length<rosterCap()){S.heroes.push(o.hero);jot(o.hero,`Joined the guild. ${o.hero.name.split(' ')[0]} ${o.why.replace(/, no fee\.?$/,'')}.`,'moment',true);S.offers.shift();S.log.unshift({d:S.day,t:`${o.hero.name} joined the guild.`});nextModal()}
+      if(o&&S.heroes.length<rosterCap()){S.heroes.push(o.hero);jot(o.hero,`Joined the guild. ${o.hero.name.split(' ')[0]} ${o.why.replace(/, no fee\.?$/,'')}.`,'moment',true);S.offers.shift();note(`${o.hero.name} joined the guild.`);nextModal()}
       break;
     }
     case 'decline':S.offers.shift();nextModal();break;
@@ -1641,6 +1793,8 @@ try{
 }catch(e){}
 if(loaded){
   if(S.nextCrisis===undefined)S.nextCrisis=S.day+ri(10,16);
+  S.ledger=S.ledger||[];
+  if(!S.ledger.length)S.ledger.push({d:S.day,n:S.gold,why:'Balance when the ledger began',c:'open',bal:S.gold});
   S.heroes.forEach(h=>{h.rep=h.rep||0;h.quests=h.quests||0;h.story=h.story||[];h.journal=h.journal||[];h.unread=h.unread||0;delete h.pend});
   if(!S.setup){
     const ev0=[];
@@ -1659,6 +1813,7 @@ else nextModal();
 render();
 document.addEventListener('input',e=>{
   const f=e.target.dataset&&e.target.dataset.f;
+  if(f==='lsearch'){ui.lq=e.target.value;ui.llim=60;const b=document.getElementById('lbody');if(b)b.innerHTML=eventsHtml();return}
   if(!f||!ui.create)return;
   if(f==='gname')ui.create.gname=e.target.value;
   else if(f==='pname')ui.create.pname=e.target.value;
