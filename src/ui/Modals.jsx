@@ -181,7 +181,7 @@ function Dossier({ m }) {
   return (
     <Shell>
       <Title>{h.name}</Title>
-      <HeroCard h={h} open />
+      <HeroCard h={h} />
       <p className="cinfo">
         Reputation: <b className={rt.cls}>{rt.n}</b> ({sign(h.rep || 0)}{h.rep || 0}) · Leaning: <b>{alignTitle(h)}</b> · {h.quests || 0} quests finished. Wins raise reputation and losses lower it. Backstory chapters write themselves as heroes finish quests, and lean on how the hero is regarded.
       </p>
@@ -189,7 +189,7 @@ function Dossier({ m }) {
         <button className={'mtab' + (tab === 'story' ? ' on' : '')} onClick={() => dispatch('dtab', 'story')}>Backstory</button>
         <button className={'mtab' + (tab === 'journal' ? ' on' : '')} onClick={() => dispatch('dtab', 'journal')}>Journal{unread && tab !== 'journal' ? ` (${unread} new)` : ''}</button>
       </div>
-      <div className="stack">
+      <div className="stack scrollbox jscroll" tabIndex={0} role="region" aria-label={tab === 'journal' ? 'Journal entries' : 'Backstory chapters'}>
         {tab === 'journal'
           ? (jr.length ? jr.map((j, i) => (
             <div key={i} className={'jent' + (j.k === 'story' ? ' story' : '') + (i < fresh ? ' fresh' : '')}>

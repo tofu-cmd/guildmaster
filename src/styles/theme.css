@@ -514,3 +514,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .crisisbar.hot, .pin.hot .pinc { animation: none; }
   .mrun, .btn, .rbtn, .opt { transition: none; }
 }
+
+/* ---------- fixed-height scrolling panels (ledger, journal) ---------- */
+.scrollbox {
+  flex: none; height: clamp(320px, 56vh, 540px); overflow-y: auto; overscroll-behavior: contain; padding-right: 8px;
+  scrollbar-width: thin; scrollbar-color: var(--brass-dark) rgba(0, 0, 0, 0.25);
+}
+.scrollbox.jscroll { height: clamp(200px, 32vh, 340px); }
+.scrollbox > * { flex-shrink: 0; }
+.scrollbox::-webkit-scrollbar { width: 10px; }
+.scrollbox::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.25); border-radius: 5px; }
+.scrollbox::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--brass), var(--brass-dark)); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
+.sheet .scrollbox { scrollbar-color: #8a3a14 rgba(90, 59, 38, 0.2); }
+.sheet .scrollbox::-webkit-scrollbar-track { background: rgba(90, 59, 38, 0.2); }
+.sheet .scrollbox::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #a8421b, #6a2d10); background-clip: padding-box; }
+.scrollbox:focus-visible { outline-offset: 0; }

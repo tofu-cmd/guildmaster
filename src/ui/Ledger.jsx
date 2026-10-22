@@ -122,7 +122,7 @@ export default function LedgerTab() {
         <button className={'mtab' + (v === 'events' ? ' on' : '')} onClick={() => dispatch('lv', 'events')}>Events</button>
         <button className={'mtab' + (v === 'gold' ? ' on' : '')} onClick={() => dispatch('lv', 'gold')}>Gold</button>
       </div>
-      {v === 'gold' ? <Gold /> : (
+      {v === 'gold' ? <div className="scrollbox" tabIndex={0} role="region" aria-label="Gold account"><Gold /></div> : (
         <>
           <div className="chips" style={{ marginBottom: 10 }}>
             {['all', ...Object.keys(LCATS)].map((k) => (
@@ -130,7 +130,7 @@ export default function LedgerTab() {
             ))}
           </div>
           <input className="in" placeholder="Search the ledger" value={ui.lq || ''} onChange={(e) => setSearch(e.target.value)} aria-label="Search the ledger" style={{ marginBottom: 10 }} />
-          <Events />
+          <div className="scrollbox" tabIndex={0} role="region" aria-label="Ledger entries"><Events /></div>
         </>
       )}
     </div>
