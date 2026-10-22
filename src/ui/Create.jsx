@@ -81,6 +81,13 @@ export default function Create() {
           <div className="grid" style={{ margin: '14px 0' }}>
             <label className="fld">Guild name<input className="in" id="gname" maxLength={26} value={c.gname} onChange={(e) => setCreateField('gname', 0, e.target.value)} /></label>
             <label className="fld">First party name<input className="in" id="pname" maxLength={22} value={c.pname} onChange={(e) => setCreateField('pname', 0, e.target.value)} /></label>
+            <div className="fld">World seed
+              <div className="seedrow">
+                <input className="in" id="wseed" maxLength={28} value={c.seed || ''} onChange={(e) => dispatch('cseed', e.target.value)} aria-label="World seed" />
+                <button className="btn small" onClick={() => dispatch('cnewseed')}>New seed</button>
+              </div>
+              <small className="cinfo">Same seed, same map, towns, era and final boss. Share it to play the same world.</small>
+            </div>
           </div>
           <div className="grid">{c.slots.map((s, i) => <Slot key={i} s={s} i={i} />)}</div>
           {!hasCleric && <p className="cinfo bad" style={{ marginTop: 12 }}>No Cleric in this party. Injuries and deaths are twice as likely when quests fail. You can hire one later.</p>}

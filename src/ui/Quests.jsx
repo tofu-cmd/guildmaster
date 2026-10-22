@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { STATS, SL, MAPW, MAPH } from '../engine/data.js';
 import { icon, sprite } from '../engine/art.js';
 import { PCOL, LOC, GUILD, locOf, route, bez, routeD, svgAt, terrain } from '../engine/map.js';
-import { S, ui, dispatch, members, progress, setView, zoomBy, partyPos, atHome } from '../engine/game.js';
+import { S, ui, dispatch, members, foundTowns, progress, setView, zoomBy, partyPos, atHome } from '../engine/game.js';
 import { useTick } from './hooks.js';
 import { Glyph, Pips, PxIcon, stressCls } from './parts.jsx';
 
@@ -121,6 +121,18 @@ export function MapPanel() {
       <svg className="map" viewBox={`${v.x} ${v.y} ${v.w} ${(v.w * MAPH) / MAPW}`} role="img" aria-label="Map of the realm">
         <g dangerouslySetInnerHTML={{ __html: terrain() }} />
         {Object.keys(LOC).map((n) => <circle key={n} cx={LOC[n].x} cy={LOC[n].y} r="3" fill="#a08a64" opacity=".55"><title>{n}</title></circle>)}
+        {foundTowns().map((t) => (
+          <g key={t.id} className="town-pin" role="button" tabIndex={0} aria-label={`${t.name}, a ${t.kind} with the inn ${t.tavern}. Open town list.`}
+            onClick={() => dispatch('drawer', 'towns')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch('drawer', 'towns'); } }}>
+            <circle cx={t.x} cy={t.y} r="19" fill="transparent" />
+            <rect x={t.x - 7} y={t.y - 4} width="14" height="10" fill="#7a5d35" />
+            <path d={`M${t.x - 10} ${t.y - 4}L${t.x} ${t.y - 14}L${t.x + 10} ${t.y - 4}z`} fill={t.kind === 'town' ? '#c9a24a' : t.kind === 'village' ? '#a5603a' : '#8a6a52'} />
+            <rect x={t.x - 2} y={t.y + 1} width="4" height="5" fill="#2b1d10" />
+            <circle className="town-glow" cx={t.x} cy={t.y - 1} r="14" fill="none" stroke="#f5c56f" strokeOpacity=".35" />
+            <text className="mlabel" x={t.x} y={t.y + 20} textAnchor="middle">{t.name}</text>
+            <title>{t.name} ({t.kind}). {t.tavern}: beds {t.inn}g per hero.</title>
+          </g>
+        ))}
         {act.map(({ p, c }) => {
           const m = p.mission, q = m.quest, t = m.total || q.days, e = t - m.daysLeft, r = route(q.place, m.origin), pf = progress(p) / 100;
           const marks = [];

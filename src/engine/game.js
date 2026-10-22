@@ -1,6 +1,7 @@
 import {STATS,SL,SS,CLASSES,TIERS,RT,RANKS,TIER_CAP,BOSS_RANK,FIRST,EPI,PARTY_NAMES,QTYPES,MON,PLACE,BOSSES,ERAS,QUIRKS,AFFL,VIRT,BLD,PERKS,DECISIONS,BAD_EVENTS,CRAFT,REP,CHAPTERS,repTier,moral,alignTitle,fillStory,storyTrait,KEY,CRISES,TOWNS,CRISIS_DAYS,MAPW,MAPH,MKEY} from './data.js';
 import {pix,CPAL,TCOL,BASE,line,WEAPON,spriteCache,SKINS,CLOTHS,HAIRS,SKIN_N,sprite,ICONS,icon} from './art.js';
-import {GUILD,PCOL,LOC,hashStr,locOf,route,bez,routeD,svgAt,terrainCache,terrain} from './map.js';
+import {GUILD,PCOL,LOC,hashStr,locOf,route,bez,routeD,svgAt,terrainCache,terrain,applyWorld} from './map.js';
+import {genWorld,randomSeed,KINDS} from './world.js';
 export const rnd=(a,b)=>a+Math.random()*(b-a);
 export const ri=(a,b)=>Math.floor(rnd(a,b+1));
 export const pick=a=>a[Math.floor(Math.random()*a.length)];
@@ -85,9 +86,10 @@ export function initCreate(){
   const used=[],slots=[];
   cls.forEach(c=>{const s=newSlot(c,0,used);used.push(s.name);slots.push(s)});
   if(perk('vet')){const s=newSlot(pick(avail),1,used);s.vet=true;slots.push(s)}
-  ui.create={gname:pick(GNAMES),pname:S.parties[0].name,slots,err:''};
+  ui.create={gname:pick(GNAMES),pname:S.parties[0].name,seed:S.seed,slots,err:''};
 }
 export function foundGuild(){
+  if(!(S.seed||'').trim()||S.seed==='nameless')setSeed(randomSeed());
   const c=ui.create,names=c.slots.map(s=>(s.name||'').trim());
   if(names.some(n=>!n)){c.err='Every hero needs a name.';return}
   S.guildName=(c.gname||'').trim()||GNAMES[0];
@@ -135,7 +137,8 @@ export function makeBossQuest(){
   return {id:uid(),d:10,boss:true,type:'Final quest',title:`Slay ${B.n}`,place:B.place,monster:B.n,w:B.w,diff:230*efx('diff',1),gold:4000,renown:300,xp:150,days:5,expires:999};
 }
 export function makeCrisis(){
-  const d=Math.min(9,2+rank()),c=pick(CRISES),place=pick(TOWNS);
+  const d=Math.min(9,2+rank()),c=pick(CRISES),tw=S.world&&S.world.towns.length?pick(S.world.towns):null,place=tw?tw.name:pick(TOWNS);
+  if(tw)tw.found=true;
   const diff=12*Math.pow(1.45,d-1)*.9*efx('diff',1);
   return {id:uid(),d,crisis:true,type:c.k,title:c.f(place),place,monster:'the threat',w:c.w,diff,stake:c.s,
     gold:Math.round(12*Math.pow(1.45,d-1)*7*2.5),renown:Math.round((3+d*d*.9+d*3)*2.5),xp:30+d*10,days:3,expires:CRISIS_DAYS};
@@ -196,10 +199,36 @@ export function addStress(h,amt,ms,ev){
     h.affl=null;
   }
 }
+/** Swap the world while the guild is still being founded. */
+export function setSeed(seed){
+  const w=genWorld(seed);
+  S.seed=seed;S.world=w;S.eraId=w.eraId;S.boss=w.boss;
+  applyWorld(w);
+  S.board=[];fillBoard();
+}
+export const towns=()=>(S.world?S.world.towns:[]);
+export const foundTowns=()=>towns().filter(t=>t.found);
+export const townById=id=>towns().find(t=>t.id===+id);
+const DISCOVER_R=46;
+const segDist=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=l?clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/l,0,1):0;return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy)};
+function discover(t,p,ev){
+  t.found=true;
+  ev.push({k:'win',t:`${p.name} discovered ${t.name}, a ${KINDS[t.kind].n.toLowerCase()}! ${t.tavern} will give weary heroes a bed (${t.inn} gold each per night).`});
+  gainRenown(1,ev);
+  const ms=members(p);
+  if(ms.length)jot(pick(ms),`Came upon ${t.name} while exploring with ${p.name}.`,'moment');
+}
+/** Anyone who walks within sight of an unknown settlement finds it. */
+function sweep(p,a,b,ev){
+  towns().forEach(t=>{if(!t.found&&segDist(t,a,b)<=DISCOVER_R)discover(t,p,ev)});
+}
+export const townAt=pos=>foundTowns().find(t=>near(pos,t)<3);
 export function newGame(){
-  S={v:2,day:1,gold:200+75*perk('purse'),renown:25*perk('fame'),rankSeen:0,heroes:[],parties:[],board:[],tavern:[],offers:[],pending:[],storyQ:[],log:[],fallen:[],
+  const seed=randomSeed(),world=genWorld(seed);
+  S={seed,world,v:2,day:1,gold:200+75*perk('purse'),renown:25*perk('fame'),rankSeen:0,heroes:[],parties:[],board:[],tavern:[],offers:[],pending:[],storyQ:[],log:[],fallen:[],
     stats:{won:0,lost:0,fallen:0},hardcore:true,over:false,nextCrisis:ri(12,18),vic:0,paid:false,nid:1,
-    eraId:pick(ERAS).id,boss:ri(0,BOSSES.length-1),bossSpawned:false,bld:{chapel:perk('chapel'),barracks:0,infirmary:0,training:0}};
+    eraId:world.eraId,boss:world.boss,bossSpawned:false,bld:{chapel:perk('chapel'),barracks:0,infirmary:0,training:0}};
+  applyWorld(world);
   S.rankSeen=rank();
   S.ledger=[{d:1,n:S.gold,why:'Starting funds',c:'open',bal:S.gold}];
   S.setup=true;
@@ -443,7 +472,7 @@ function roamPoint(pos){
 export function startMission(p,q,how){
   const o=partyPos(p),origin={x:Math.round(o.x*10)/10,y:Math.round(o.y*10)/10};
   p.mission={quest:q,daysLeft:q.days,total:q.days,mom:0,used:[],ev:[],origin};
-  p.auto=true;p.recall=false;p.dest=null;p.at='field';
+  p.auto=true;p.recall=false;p.dest=null;p.restAt=null;p.at='field';
   p.pos={...origin};p.leg={from:{...origin},to:{...origin}};
   S.board=S.board.filter(x=>x!==q);
   note(how==='auto'?`${p.name} spotted "${q.title}" and took it on.`:how==='reroute'?`${p.name} changed course for "${q.title}".`:`${p.name} set out on "${q.title}".`);
@@ -456,7 +485,7 @@ export function recallParty(p){
     p.mission=null;sortBoard();
   }
   p.pos={x:o.x,y:o.y};p.leg={from:{...p.pos},to:{...p.pos}};
-  p.recall=true;p.auto=false;p.dest=null;
+  p.recall=true;p.auto=false;p.dest=null;p.restAt=null;
   p.at=near(p.pos,GUILD)<2?'home':'field';
   if(p.at==='field')stepToward(p,GUILD);
   note(`${p.name} was recalled to the tavern.`);
@@ -500,9 +529,40 @@ function encounter(p,ev){
     note1('loss',`${p.name} saw a bad omen near ${where}. Nerves fray.`);
   }
 }
-/** One day of free-roaming: go home to heal, take a quest worth taking, or wander. */
+/** A night at a town inn: stress eases and wounds close faster, for a small fee. */
+function restDay(p,t,ev){
+  const ms=members(p),cost=t.inn*ms.length,paid=S.gold>=cost;
+  if(paid)gold(-cost,`Rooms at ${t.tavern}, ${t.name}`,'rest');
+  ms.forEach(h=>{
+    addStress(h,-(paid?t.relief:Math.round(t.relief/2)),ms,ev);
+    if(paid&&t.heal&&h.injured>0)h.injured=Math.max(0,h.injured-t.heal);
+  });
+  t.visits++;p.restDays=(p.restDays||0)+1;
+  if(p.arrived!==t.id){
+    p.arrived=t.id;
+    ev.push({k:'info',m:true,t:`${p.name} reached ${t.name} and took rooms at ${t.tavern}.`});
+  }
+  ev.push({k:'info',m:true,q:true,t:`${p.name} rested at ${t.tavern}${paid?` (-${cost} gold)`:', sleeping rough because they could not pay'}.`});
+}
+/** Decide whether a party should be at a town inn right now. Returns that town or null. */
+function restPlan(p,ms){
+  const found=foundTowns();
+  let T=p.restAt?found.find(t=>t.id===p.restAt):null;
+  const hurt=ms.some(unavailable),top=Math.max(...ms.map(h=>h.stress));
+  if(T){
+    if(near(p.pos,T)<3&&((p.restDays>=1&&!hurt&&top<=25)||p.restDays>=6)){p.restAt=null;p.restDays=0;p.arrived=null;return null}
+    return T;
+  }
+  p.restAt=null;
+  if(!found.length||!(hurt||top>=70||ms.some(h=>h.affl)))return null;
+  T=found.sort((a,b)=>near(p.pos,a)-near(p.pos,b))[0];
+  if(hurt&&near(p.pos,GUILD)<near(p.pos,T))return null;
+  p.restAt=T.id;p.restDays=0;p.arrived=null;
+  return T;
+}
+/** One day of free-roaming: rest at an inn, go home to heal, take a quest worth taking, or wander and explore. */
 export function autoStep(p,ev){
-  if(p.leg)p.pos={...p.leg.to};
+  if(p.leg){sweep(p,p.leg.from,p.leg.to,ev);p.pos={...p.leg.to}}
   p.leg={from:{...p.pos},to:{...p.pos}};
   const ms=members(p),atG=near(p.pos,GUILD)<2;
   if(atG){p.at='home';p.pos={x:GUILD.x,y:GUILD.y};p.leg={from:{...p.pos},to:{...p.pos}}}
@@ -514,13 +574,22 @@ export function autoStep(p,ev){
     return;
   }
   if(!p.auto){if(!atG)stepToward(p,GUILD);return}
+  const T=restPlan(p,ms);
+  if(T){
+    if(near(p.pos,T)<3){p.at='field';p.pos={x:T.x,y:T.y};p.leg={from:{...p.pos},to:{...p.pos}};restDay(p,T,ev)}
+    else{p.at='field';stepToward(p,T)}
+    return;
+  }
   if(ms.some(unavailable)){if(!atG)stepToward(p,GUILD);return}
   if(p.dest&&near(p.pos,p.dest)<2){encounter(p,ev);p.dest=null}
   const here=members(p);
   if(!here.length||here.some(unavailable))return;
   const c=S.board.filter(q=>!q.crisis&&!q.boss&&chance(here,q)>=AUTO_ODDS).sort((a,b)=>near(p.pos,locOf(a.place))-near(p.pos,locOf(b.place)))[0];
   if(c){startMission(p,c,'auto');return}
-  if(!p.dest)p.dest=roamPoint(p.pos);
+  if(!p.dest){
+    const unknown=towns().filter(t=>!t.found).sort((a,b)=>near(p.pos,a)-near(p.pos,b))[0];
+    p.dest=unknown&&Math.random()<.55?{x:clamp(unknown.x+ri(-22,22),26,MAPW-26),y:clamp(unknown.y+ri(-22,22),48,MAPH-30)}:roamPoint(p.pos);
+  }
   p.at='field';
   stepToward(p,p.dest);
 }
@@ -546,7 +615,10 @@ export function endDay(){
   }
   S.parties.forEach(p=>{
     if(p.mission){
-      p.mission.daysLeft--;
+      const m0=p.mission,tot=m0.total||m0.quest.days,t0=(tot-m0.daysLeft)/tot,rt=route(m0.quest.place,m0.origin);
+      m0.daysLeft--;
+      const t1=(tot-m0.daysLeft)/tot;
+      for(let k=0;k<5;k++)sweep(p,bez(rt,t0+(t1-t0)*k/5),bez(rt,t0+(t1-t0)*(k+1)/5),ev);
       if(p.mission.daysLeft<=0)resolve(p,ev);
       else tickMission(p,ev);
     }
@@ -681,6 +753,21 @@ export function dispatch(act,a,b){
     case 'drawer':ui.drawer=ui.drawer===a?null:a;ui.tab=a;break;
     case 'selectparty':ui.selectedParty=+a;ui.drawer='route';break;
     case 'rfilter':ui.rf=a==='reset'?{cls:'all',st:'all',sort:(ui.rf&&ui.rf.sort)||'tier'}:{cls:'all',st:'all',sort:'tier',...(ui.rf||{}),[a]:b};break;
+    case 'cseed':ui.create.seed=a;setSeed(a.trim()||'nameless');break;
+    case 'cnewseed':{const sd=randomSeed();ui.create.seed=sd;setSeed(sd);break}
+    case 'resttown':{
+      const p=party(+a),t=townById(b);
+      if(p&&t&&t.found&&p.members.length){
+        const o=partyPos(p);
+        if(p.mission){const q=p.mission.quest;if(!S.board.includes(q))S.board.push(q);p.mission=null;sortBoard()}
+        p.pos={x:o.x,y:o.y};p.leg={from:{...p.pos},to:{...p.pos}};
+        p.at=near(p.pos,GUILD)<2?'home':'field';
+        p.recall=false;p.auto=true;p.dest=null;p.restAt=t.id;p.restDays=0;p.arrived=null;
+        note(`${p.name} set out for ${t.tavern} in ${t.name}.`);
+        ui.drawer=null;
+      }
+      break;
+    }
     case 'expand':ui.exp=ui.exp||{};ui.exp[+a]=!ui.exp[+a];break;
     case 'cname':{const s=ui.create.slots[+a];s.name=pick(FIRST);break}
     case 'ccls':{const s=ui.create.slots[+a];s.cls=b;s.base=rollBase(b,s.tier);s.focus=topStat(b);break}
@@ -805,6 +892,8 @@ export function initGame(){
     if(raw){const d=JSON.parse(raw);if(d&&d.v===2&&Array.isArray(d.heroes)){S=d;loaded=true}}
   }catch(e){}
   if(loaded){
+    if(!S.world||!S.world.towns){S.seed=S.seed||randomSeed();S.world=genWorld(S.seed)}
+    applyWorld(S.world);
     if(S.nextCrisis===undefined)S.nextCrisis=S.day+ri(10,16);
     S.ledger=S.ledger||[];
     if(!S.ledger.length)S.ledger.push({d:S.day,n:S.gold,why:'Balance when the ledger began',c:'open',bal:S.gold});
@@ -824,7 +913,7 @@ export function initGame(){
       p.leg=p.leg||{from:{...p.pos},to:{...p.pos}};
       p.at=p.at||(p.mission?'field':'home');
       if(p.auto===undefined)p.auto=!!p.mission;
-      p.recall=!!p.recall;p.dest=p.dest||null;
+      p.recall=!!p.recall;p.dest=p.dest||null;p.restAt=p.restAt||null;p.restDays=p.restDays||0;
       if(p.mission&&!p.mission.origin)p.mission.origin={x:GUILD.x,y:GUILD.y};
     });
   }

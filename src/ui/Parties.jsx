@@ -1,7 +1,7 @@
 import { STATS, SL, CLASSES, TIERS, AFFL, VIRT } from '../engine/data.js';
 import { PCOL } from '../engine/map.js';
 import {
-  S, dispatch, members, stat, status, unavailable, atHome, partyPos, nearestPlace, chance,
+  S, dispatch, townById, townAt, members, stat, status, unavailable, atHome, partyPos, nearestPlace, chance,
 } from '../engine/game.js';
 import { Sprite, stressCls } from './parts.jsx';
 
@@ -11,6 +11,7 @@ const ABBR = { might: 'MT', magic: 'MG', agility: 'AG', wits: 'WT' };
 export function partyState(p) {
   if (p.mission) return `On a quest: ${p.mission.quest.title} (day ${p.mission.total - p.mission.daysLeft} of ${p.mission.total})`;
   if (p.recall) return 'Returning to the tavern';
+  if (p.restAt && townById(p.restAt)) { const t = townById(p.restAt), here = townAt(partyPos(p)); return here && here.id === t.id ? `Resting at ${t.tavern} in ${t.name}` : `Heading to ${t.name} to rest`; }
   if (atHome(p)) return p.auto ? 'At the tavern, about to head out' : 'At the tavern, waiting for orders';
   if (!p.auto) return 'Heading back to the tavern';
   return `Roaming near ${nearestPlace(partyPos(p))}`;
@@ -19,6 +20,7 @@ export function partyState(p) {
 function shortState(p) {
   if (p.mission) return { label: 'On quest', cls: 'warn' };
   if (p.recall) return { label: 'Returning', cls: 'warn' };
+  if (p.restAt && !p.mission) return { label: 'Resting', cls: 'good' };
   if (atHome(p)) return p.members.length ? (p.auto ? { label: 'Leaving', cls: 'warn' } : { label: 'At tavern', cls: 'good' }) : { label: 'Empty', cls: '' };
   return p.auto ? { label: 'Roaming', cls: 'warn' } : { label: 'Heading home', cls: 'warn' };
 }

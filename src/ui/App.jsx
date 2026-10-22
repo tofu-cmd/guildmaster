@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RT, RANKS, TIERS, TIER_CAP, BOSS_RANK } from '../engine/data.js';
-import { S, ui, dispatch, rank, rosterCap, partyCount, era, members, unavailable, chance, atHome, partyPos, nearestPlace, AUTO_ODDS } from '../engine/game.js';
+import { S, ui, dispatch, foundTowns, rank, rosterCap, partyCount, era, members, unavailable, chance, atHome, partyPos, nearestPlace, AUTO_ODDS } from '../engine/game.js';
 import { CLASSES } from '../engine/data.js';
 import { locOf } from '../engine/map.js';
 import { useGame, useTick } from './hooks.js';
@@ -12,6 +12,7 @@ import { TavernTab, GuildTab } from './Tabs.jsx';
 import { RosterDashboard } from './Roster.jsx';
 import { PartiesDashboard, partyState } from './Parties.jsx';
 import LedgerTab from './Ledger.jsx';
+import { TownsTab } from './Towns.jsx';
 import Create from './Create.jsx';
 import ModalHost from './Modals.jsx';
 
@@ -168,7 +169,7 @@ function RouteDrawer() {
 
 function Drawer() {
   if (!ui.drawer) return null;
-  const tab = { parties: PartiesDashboard, roster: RosterDashboard, tavern: TavernTab, guild: GuildTab, ledger: LedgerTab }[ui.drawer];
+  const tab = { parties: PartiesDashboard, roster: RosterDashboard, towns: TownsTab, tavern: TavernTab, guild: GuildTab, ledger: LedgerTab }[ui.drawer];
   const Tab = tab;
   const content = ui.drawer === 'route' ? <RouteDrawer /> : ui.drawer === 'quests'
     ? <><div className="drawer-kicker">QUEST LEDGER</div><h2>Open contracts</h2><div className="stack">{S.board.map((q) => <QuestCard key={q.id} q={q} />)}</div></>
@@ -206,7 +207,7 @@ function Main() {
     <div className="map-controls" aria-label="Game ledgers and mechanics">
       {[
         ['quests', 'Quests', S.board.length], ['parties', 'Parties', S.parties.filter((p) => p.members.length).length], ['roster', 'Roster', S.heroes.length],
-        ['tavern', 'Tavern'], ['guild', 'Guild'], ['ledger', 'Ledger'],
+        ['towns', 'Towns', foundTowns().length], ['tavern', 'Tavern'], ['guild', 'Guild'], ['ledger', 'Ledger'],
       ].map(([id, label, count]) => <button key={id} className={'map-button ' + (ui.drawer === id ? 'on' : '')} onClick={() => dispatch('drawer', id)}><span>{label}</span>{count !== undefined && <b>{count}</b>}</button>)}
     </div>
     <div className="map-caption"><b>THE REALM</b><span>Click a quest pin to dispatch. Click any party to give orders.</span></div>
