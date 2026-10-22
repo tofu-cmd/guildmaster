@@ -460,7 +460,9 @@ const pick=a=>a[Math.floor(Math.random()*a.length)];
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let S=null,M=null;
-let ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{}};
+const MODEKEY='guildmaster-mode';
+let ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{},mode:'manual',advancing:false};
+try{if(localStorage.getItem(MODEKEY)==='live')ui.mode='live'}catch(e){}
 const uid=()=>S.nid++;
 const perk=id=>(M.perks[id]||0);
 
@@ -923,8 +925,9 @@ function endDay(){
   if(!S.heroes.length&&S.gold<50){S.over=true;ev.push({k:'death',t:'You have no heroes and no gold to hire more. The guild is finished.'})}
   ev.forEach(e=>{if(!e.m)S.log.unshift({d:S.day-1,t:e.t})});
   S.log=S.log.slice(0,60);
-  if(ev.some(e=>e.k==='death'||e.k==='rank'))ui.modal={type:'report',ev:ev.filter(e=>!e.q)};
-  else{ev.filter(e=>!e.q).forEach(pushToast);nextModal()}
+  const shown=ev.filter(e=>!e.q);
+  if(shown.some(e=>e.k==='death'||e.k==='rank')||(ui.mode!=='live'&&shown.length))ui.modal={type:'report',ev:shown};
+  else{shown.forEach(pushToast);nextModal()}
 }
 let toastId=0;
 function pushToast(e){
@@ -1093,10 +1096,10 @@ function renderRank(){
 function renderTab(){
   if(ui.tab==='quests'){
     const out=S.parties.filter(p=>p.mission);
-    return `<div class="sect"><h2>Out on quests</h2><span class="cinfo">Parties travel in real time and meet something on the road each day.</span></div>
+    return `<div class="sect"><h2>Out on quests</h2><span class="cinfo">Each day, a party travels a step and meets something on the road.</span></div>
       ${out.length?`<div class="grid">${out.map(missionCard).join('')}</div>`:`<div class="empty">No party is out. Pick a quest below and send someone.</div>`}
       <div class="sect"><h2>Quest board</h2><span class="cinfo">Higher danger pays more, but your odds drop.</span></div>
-      ${S.board.length?`<div class="grid">${S.board.map(questCard).join('')}</div>`:`<div class="empty">The board is empty. New quests arrive as days pass.</div>`}`;
+      ${S.board.length?`<div class="grid">${S.board.map(questCard).join('')}</div>`:`<div class="empty">The board is empty. End the day for new quests.</div>`}`;
   }
   if(ui.tab==='parties'){
     return `<div class="sect"><h2>Your parties</h2><span class="cinfo">Up to 4 heroes each. Mix classes for better odds.</span></div>
@@ -1147,7 +1150,7 @@ function renderModal(){
       <ol class="steps">
         <li><b>Hire heroes</b> in the Tavern. Each has a class, rarity and quirks, good and bad. Wages come out every day.</li>
         <li><b>Build parties</b> of up to 4. Different classes boost your odds. A Cleric keeps people alive.</li>
-        <li><b>Send a party on a quest.</b> Time flows on its own, so use the speed buttons at the top (Pause, 1x, 2x, 4x). Your party travels and meets things on the road, and sometimes the game stops so you can decide what they do. Some choices need a specific class. Opening any menu also pauses time.</li>
+        <li><b>Send a party on a quest.</b> Press <b>End Day</b> to move time forward. Your party travels one step per day and meets things on the road, and sometimes you decide what they do. Some choices need a specific class. Prefer real time? Switch "Time" at the bottom of the page to Live.</li>
         <li><b>Watch stress.</b> Fear builds up. At 100 a hero breaks: afflicted, or rarely, heroic. Use the Relax button on the Roster tab to calm them down.</li>
         <li><b>Build their legends.</b> Wins raise a hero’s reputation and losses lower it. As they finish quests, new chapters of their backstory unlock. You choose how each one reads, and each choice grants a trait and shapes their morals.</li>
         <li><b>Answer crises.</b> Now and then, a red crisis quest appears with a 25-day deadline. If it expires unanswered, or your party fails it, your guild is lost. A banner at the top counts the days down.</li>
@@ -1333,7 +1336,9 @@ function render(){
     <div class="bar"><div class="logo">Guildmaster</div>
       <div class="chip"><small>Day</small><b>${S.day}</b></div>
       <div class="chip"><small>Gold</small><b class="${S.gold<0?'neg':''}">${S.gold}</b></div>
-      <div class="speed" role="group" aria-label="Game speed">${[['0','Pause'],['1','1x'],['2','2x'],['4','4x']].map(s=>`<button class="${(ui.paused?'0':String(ui.speed))===s[0]?'on':''}" data-act="speed" data-a="${s[0]}">${s[1]}</button>`).join('')}</div>
+      ${ui.mode==='live'
+        ?`<div class="speed" role="group" aria-label="Game speed">${[['0','Pause'],['1','1x'],['2','2x'],['4','4x']].map(s=>`<button class="${(ui.paused?'0':String(ui.speed))===s[0]?'on':''}" data-act="speed" data-a="${s[0]}">${s[1]}</button>`).join('')}</div>`
+        :`<button class="btn primary" data-act="endday" ${ui.advancing?'disabled':''}>End Day ▸</button>`}
       <div class="daymeter" title="Progress through the current day"><i id="dayfill" style="width:${ui.frac*100}%"></i></div></div>
     ${(()=>{
       const c=S.board.find(x=>x.crisis),m=S.parties.find(p=>p.mission&&p.mission.quest.crisis);
@@ -1345,7 +1350,7 @@ function render(){
     <nav class="tabs">${tabs.map(t=>`<button class="tab ${ui.tab===t[0]?'on':''}" data-act="tab" data-a="${t[0]}">${t[1]}${t[2]!==null?`<em>${t[2]}</em>`:''}${t[3]?'<span class="pill good" style="margin-left:6px">Story</span>':''}</button>`).join('')}</nav>
     ${renderTab()}
     <section class="ledger"><h2>Guild ledger</h2><ol>${S.log.slice(0,8).map(l=>`<li><span>Day ${l.d}</span>${esc(l.t)}</li>`).join('')}</ol></section>
-    <div class="foot"><button class="btn small" data-act="hardcore">Heroes can die: ${S.hardcore?'ON':'OFF'}</button><button class="btn small" data-act="help">How to play</button><button class="btn small" data-act="legacy">Legacy</button><button class="btn small" data-act="retire">Retire run</button></div>
+    <div class="foot"><button class="btn small" data-act="hardcore">Heroes can die: ${S.hardcore?'ON':'OFF'}</button><button class="btn small" data-act="mode">Time: ${ui.mode==='live'?'Live':'Manual (End Day)'}</button><button class="btn small" data-act="help">How to play</button><button class="btn small" data-act="legacy">Legacy</button><button class="btn small" data-act="retire">Retire run</button></div>
     ${renderModal()}`;
   window.scrollTo(0,y);
   renderToasts();
@@ -1375,6 +1380,14 @@ let lastT=performance.now();
 function loop(){
   const now=performance.now(),dt=Math.min(250,now-lastT);lastT=now;
   if(!S)return;
+  if(ui.advancing){
+    if(S.over||S.setup){ui.advancing=false;ui.frac=0;return}
+    ui.frac+=dt/1100;
+    if(ui.frac>=1){ui.frac=0;ui.advancing=false;endDay();render()}
+    else tickUI();
+    return;
+  }
+  if(ui.mode!=='live'){tickUI();return}
   if(S.over||S.setup||ui.modal||ui.paused||document.hidden){tickUI();return}
   ui.frac+=dt*ui.speed/DAY_MS;
   if(ui.frac>=1){ui.frac=0;endDay();render()}
@@ -1399,6 +1412,11 @@ document.addEventListener('click',e=>{
     case 'creroll':rollTraits(ui.create.slots[+a]);break;
     case 'crand':{const g=ui.create.gname,pn=ui.create.pname;initCreate();ui.create.gname=g;ui.create.pname=pn;break}
     case 'cfound':foundGuild();break;
+    case 'endday':if(!ui.advancing&&!ui.modal&&!S.over&&!S.setup)ui.advancing=true;break;
+    case 'mode':
+      ui.mode=ui.mode==='live'?'manual':'live';ui.paused=true;ui.advancing=false;ui.frac=0;
+      try{localStorage.setItem(MODEKEY,ui.mode)}catch(e){}
+      break;
     case 'speed':if(a==='0')ui.paused=true;else{ui.paused=false;ui.speed=+a}break;
     case 'assign':ui.modal={type:'assign',qid:a};break;
     case 'send':{
@@ -1484,7 +1502,7 @@ document.addEventListener('click',e=>{
       if(cost!==undefined&&M.legacy>=cost){M.legacy-=cost;M.perks[a]=perk(a)+1;saveMeta()}
       break;
     }
-    case 'begin':{const first=!M.runs.length;ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{}};newGame();ui.introAfter=first;break}
+    case 'begin':{const first=!M.runs.length;ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{},mode:ui.mode,advancing:false};newGame();ui.introAfter=first;break}
   }
   if(el.dataset.act!=='release'&&el.dataset.act!=='tab')ui.confirm=null;
   render();
