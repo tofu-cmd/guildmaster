@@ -200,13 +200,14 @@ function Visitors() {
 
 function Main() {
   const active = S.parties.filter((p) => p.members.length && !atHome(p));
-  return <main className="map-command-center">
+  const crisis = S.board.some((q) => q.crisis) || S.parties.some((p) => p.mission && p.mission.quest.crisis);
+  return <main className={'map-command-center' + (crisis ? ' has-crisis' : '') + (ui.drawer ? ' drawer-open' : '')}>
     <MapPanel />
     <div className="map-vignette" />
     <header className="map-topbar">
       <div><div className="wordmark">Guildmaster</div><div className="map-subtitle">The Ember Crown · {S.guildName || 'Unnamed Guild'}</div></div>
       <div className="map-stats"><span>DAY <b>{S.day}</b></span><span>GOLD <b>{S.gold}</b></span><span>OUT <b>{active.length}/{S.parties.filter((p) => p.members.length).length}</b></span></div>
-      <div className="map-clock"><button className="btn primary" onClick={() => ui.mode === 'live' ? dispatch('speed', ui.paused ? '1' : '0') : dispatch('endday')}>{ui.mode === 'live' ? (ui.paused ? 'Resume' : 'Pause') : 'Advance day'}</button><button className="btn small" onClick={() => dispatch('mode')}>{ui.mode === 'live' ? 'Live time' : 'Manual time'}</button></div>
+      <div className="map-clock"><button className="btn primary" onClick={() => ui.mode === 'live' ? dispatch('speed', ui.paused ? '1' : '0') : dispatch('endday')}>{ui.mode === 'live' ? (ui.paused ? 'Resume' : 'Pause') : 'Advance day'}</button><button className="btn small" onClick={() => dispatch('mode')}>{ui.mode === 'live' ? 'Live' : 'Manual'}<span className="hide-sm"> time</span></button></div>
     </header>
     <div className="map-controls" aria-label="Game ledgers and mechanics">
       {[

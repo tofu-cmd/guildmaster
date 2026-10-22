@@ -613,3 +613,30 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .visitor { left: 8px; bottom: 100px; }
   .toasts { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ---------- crisis banner on the map screen ---------- */
+.map-command-center .crisisbar {
+  top: 84px; left: 0; right: 0; transform: none; margin: 0 auto;
+  width: min(620px, calc(100vw - 24px)); max-width: calc(100vw - 24px); box-sizing: border-box;
+  background: repeating-linear-gradient(45deg, rgba(168, 66, 27, 0.45) 0 10px, rgba(40, 14, 8, 0.92) 10px 20px);
+}
+.map-command-center .crisisbar span { min-width: 0; overflow-wrap: anywhere; }
+@media (min-width: 1100px) {
+  .map-command-center.drawer-open .crisisbar { left: 170px; right: auto; margin: 0; width: min(560px, calc(100vw - 700px)); }
+}
+@media (max-width: 700px) {
+  .map-command-center .crisisbar { top: 100px; padding: 6px 10px; gap: 8px; font-size: 13px; line-height: 1.25; flex-wrap: nowrap; }
+  .map-command-center .crisisbar .btn { flex: none; }
+  .map-command-center.has-crisis .mapctl { top: 168px; }
+}
+
+@media (max-width: 700px) {
+  .hide-sm { display: none; }
+  .map-topbar { gap: 6px 8px; padding: 8px 10px 6px; }
+  .map-topbar .wordmark { font-size: 21px; }
+  .map-subtitle { display: none; }
+  .map-clock { margin-left: auto; }
+  .map-clock .btn { padding: 6px 10px; font-size: 13px; }
+  .map-stats { gap: 10px; font-size: 10px; }
+  .map-stats b { font-size: 16px; }
+}
