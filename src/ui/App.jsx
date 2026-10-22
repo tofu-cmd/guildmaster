@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RT, RANKS, TIERS, TIER_CAP, BOSS_RANK } from '../engine/data.js';
-import { S, ui, dispatch, rank, rosterCap, partyCount, era } from '../engine/game.js';
+import { S, ui, dispatch, rank, rosterCap, partyCount, era, members, unavailable, chance, atHome, partyPos, nearestPlace, AUTO_ODDS } from '../engine/game.js';
+import { CLASSES } from '../engine/data.js';
+import { locOf } from '../engine/map.js';
 import { useGame, useTick } from './hooks.js';
 import { Glyph, AnimatedNumber } from './parts.jsx';
 import { motionSetting, saveMotion } from './motion.js';
@@ -111,19 +113,62 @@ function Status() {
   );
 }
 
+function partyState(p) {
+  if (p.mission) return `On a quest: ${p.mission.quest.title} (day ${p.mission.total - p.mission.daysLeft} of ${p.mission.total})`;
+  if (p.recall) return 'Returning to the tavern';
+  if (atHome(p)) return p.auto ? 'At the tavern, about to head out' : 'At the tavern, waiting for orders';
+  if (!p.auto) return 'Heading back to the tavern';
+  return `Roaming near ${nearestPlace(partyPos(p))}`;
+}
+
 function RouteDrawer() {
   const p = S.parties.find((x) => x.id === ui.selectedParty);
-  if (!p) return <div className="drawer-empty">Select a moving party on the map to change its route.</div>;
-  return <>
-    <div className="drawer-kicker">ROUTE CONTROL</div>
-    <h2>{p.name}</h2>
-    <p className="mute">Currently traveling to <b>{p.mission.quest.place}</b>. Choose a new quest destination.</p>
-    <div className="route-list">
-      {S.board.map((q) => <button className="route-option" key={q.id} onClick={() => dispatch('reroute', q.id, p.id)}>
-        <span><b>{q.title}</b><small>{q.place} · Danger {q.d}</small></span><strong>{Math.round(q.d >= 2 ? 65 : 78)}%</strong>
-      </button>)}
-    </div>
-  </>;
+  if (!p) {
+    return (
+      <>
+        <div className="drawer-kicker">PARTY ORDERS</div>
+        <h2>Choose a party</h2>
+        <p className="mute">Click a party on the map, or pick one here.</p>
+        <div className="route-list">
+          {S.parties.filter((x) => x.members.length).map((x) => (
+            <button className="route-option" key={x.id} onClick={() => dispatch('selectparty', x.id)}>
+              <span><b>{x.name}</b><small>{partyState(x)}</small></span>
+            </button>
+          ))}
+        </div>
+      </>
+    );
+  }
+  const ms = members(p), blocked = ms.some(unavailable) || !ms.length;
+  const options = S.board.map((q) => ({ q, c: chance(ms, q), d: Math.round(Math.hypot(partyPos(p).x - locOf(q.place).x, partyPos(p).y - locOf(q.place).y)) }))
+    .sort((a, b) => b.c - a.c);
+  const home = atHome(p);
+  return (
+    <>
+      <div className="drawer-kicker">PARTY ORDERS</div>
+      <h2>{p.name}</h2>
+      <p className="mute">{partyState(p)}.</p>
+      <div className="names" style={{ marginBottom: 10 }}>{ms.map((h) => `${h.name.split(' ')[0]} (${CLASSES[h.cls].n}, stress ${h.stress})`).join(', ') || 'Nobody assigned'}</div>
+      {blocked && ms.length > 0 && <p className="bad">A hero is hurt or resting, so this party cannot take a new quest yet.</p>}
+      <div className="order-btns">
+        {(!home || p.mission) && <button className="btn" onClick={() => dispatch('recall', p.id)}>Recall to the tavern</button>}
+        {home && !p.auto && !p.mission && <button className="btn" disabled={blocked} onClick={() => dispatch('roamon', p.id)}>Roam and take quests</button>}
+        <button className="btn small" onClick={() => dispatch('selectparty', 0)}>All parties</button>
+      </div>
+      <p className="cinfo" style={{ margin: '10px 0 4px' }}>
+        {p.auto ? `This party roams the map and takes the nearest quest at ${Math.round(AUTO_ODDS * 100)}% odds or better. Crises and the final quest always need your call.` : 'This party waits for orders. Assign a quest, or let it roam.'}
+      </p>
+      <div className="sect" style={{ margin: '14px 0 6px' }}><h2 style={{ fontSize: 22 }}>{p.mission ? 'Reassign to a new quest' : 'Assign a quest'}</h2></div>
+      <div className="route-list" style={{ marginTop: 6 }}>
+        {options.length ? options.map(({ q, c, d }) => (
+          <button className="route-option" key={q.id} disabled={blocked} onClick={() => dispatch('reroute', q.id, p.id)}>
+            <span><b>{q.crisis ? 'Crisis: ' : q.boss ? 'Final: ' : ''}{q.title}</b><small>{q.place} · Danger {q.d} · {d} units away</small></span>
+            <strong className={c >= 0.7 ? 'good' : c >= 0.4 ? 'warn' : 'bad'}>{Math.round(c * 100)}%</strong>
+          </button>
+        )) : <div className="empty">No quests on the board right now.</div>}
+      </div>
+    </>
+  );
 }
 
 function Drawer() {
@@ -137,13 +182,13 @@ function Drawer() {
 }
 
 function Main() {
-  const active = S.parties.filter((p) => p.mission);
+  const active = S.parties.filter((p) => p.members.length && !atHome(p));
   return <main className="map-command-center">
     <MapPanel />
     <div className="map-vignette" />
     <header className="map-topbar">
       <div><div className="wordmark">Guildmaster</div><div className="map-subtitle">The Ember Crown · {S.guildName || 'Unnamed Guild'}</div></div>
-      <div className="map-stats"><span>DAY <b>{S.day}</b></span><span>GOLD <b>{S.gold}</b></span><span>ROAMING <b>{active.length}/{S.parties.length}</b></span></div>
+      <div className="map-stats"><span>DAY <b>{S.day}</b></span><span>GOLD <b>{S.gold}</b></span><span>OUT <b>{active.length}/{S.parties.filter((p) => p.members.length).length}</b></span></div>
       <div className="map-clock"><button className="btn primary" onClick={() => ui.mode === 'live' ? dispatch('speed', ui.paused ? '1' : '0') : dispatch('endday')}>{ui.mode === 'live' ? (ui.paused ? 'Resume' : 'Pause') : 'Advance day'}</button><button className="btn small" onClick={() => dispatch('mode')}>{ui.mode === 'live' ? 'Live' : 'Manual'}</button></div>
     </header>
     <div className="map-controls" aria-label="Game ledgers and mechanics">
@@ -152,8 +197,8 @@ function Main() {
         ['tavern', 'Tavern'], ['guild', 'Guild'], ['ledger', 'Ledger'],
       ].map(([id, label, count]) => <button key={id} className={'map-button ' + (ui.drawer === id ? 'on' : '')} onClick={() => dispatch('drawer', id)}><span>{label}</span>{count !== undefined && <b>{count}</b>}</button>)}
     </div>
-    <div className="map-caption"><b>THE REALM</b><span>Click a quest pin to dispatch. Click a moving party to reroute.</span></div>
-    <div className="map-bottom"><span className="status-dot" /> Auto-roaming enabled · quest resolves when odds reach <b>65%</b><button className="btn small" onClick={() => dispatch('help')}>How to play</button><button className="btn small" onClick={() => dispatch('hardcore')}>Death: {S.hardcore ? 'ON' : 'OFF'}</button></div>
+    <div className="map-caption"><b>THE REALM</b><span>Click a quest pin to dispatch. Click any party to give orders.</span></div>
+    <div className="map-bottom"><span className="status-dot" /> Idle parties roam and take quests at <b>55%</b> odds or better. Click a party for orders.<button className="btn small" onClick={() => dispatch('help')}>How to play</button><button className="btn small" onClick={() => dispatch('hardcore')}>Death: {S.hardcore ? 'ON' : 'OFF'}</button></div>
     <Drawer />
     <CrisisBar />
   </main>;

@@ -572,3 +572,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (max-width: 720px) {
   .map-topbar { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }.map-topbar .wordmark { font-size: 24px; }.map-subtitle { font-size: 9px; }.map-stats { order: 3; width: 100%; justify-content: space-between; margin: 0; }.map-clock { margin-left: auto; }.map-controls { left: 10px; top: 112px; }.map-button { min-width: 104px; padding: 7px 9px; font-size: 13px; }.map-drawer { top: 96px; right: 10px; bottom: 52px; left: 10px; width: auto; padding: 16px; }.map-caption { left: 12px; bottom: 52px; }.map-bottom { left: 10px; right: 10px; bottom: 8px; font-size: 11px; gap: 6px; }.map-bottom .btn { padding: 4px 7px; font-size: 11px; }.map-bottom .btn:first-of-type { margin-left: auto; }
 }
+
+/* ---------- party orders ---------- */
+.order-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.route-option:disabled { opacity: 0.45; cursor: not-allowed; }
+.route-option strong.good { color: var(--success); } .route-option strong.warn { color: var(--warning); } .route-option strong.bad { color: var(--danger); }
+.party-token { cursor: pointer; }
+.party-token:hover .plabel { fill: var(--brass-light); }
+.party-token:focus-visible { outline: none; }
+.party-token:focus-visible ellipse { stroke: var(--brass-light); stroke-width: 2; }

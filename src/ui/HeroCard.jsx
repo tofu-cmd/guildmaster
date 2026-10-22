@@ -36,6 +36,7 @@ function StatusPill({ h }) {
   if (st === 'injured') return <span className="pill bad">Injured {h.injured}d</span>;
   if (st === 'resting') return <span className="pill warn">Resting</span>;
   if (st === 'questing') return <span className="pill warn">On quest</span>;
+  if (st === 'roaming') return <span className="pill warn">Roaming</span>;
   return null;
 }
 

@@ -10,8 +10,8 @@ export const LOC={};
 })();
 export const hashStr=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)};
 export const locOf=place=>LOC[place]||{x:GUILD.x+60+hashStr(place)%140,y:GUILD.y-60-hashStr(place+'y')%110};
-export function route(place){
-  const L=locOf(place),G=GUILD,dx=L.x-G.x,dy=L.y-G.y,len=Math.hypot(dx,dy)||1,off=(hashStr(place)%70)-35;
+export function route(place,origin){
+  const L=locOf(place),G=origin||GUILD,dx=L.x-G.x,dy=L.y-G.y,len=Math.hypot(dx,dy)||1,off=(hashStr(place)%70)-35;
   return {G,L,C:{x:(G.x+L.x)/2-dy/len*off,y:(G.y+L.y)/2+dx/len*off}};
 }
 export const bez=(r,t)=>{const u=1-t;return {x:u*u*r.G.x+2*u*t*r.C.x+t*t*r.L.x,y:u*u*r.G.y+2*u*t*r.C.y+t*t*r.L.y}};

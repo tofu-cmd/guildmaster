@@ -1,16 +1,18 @@
 import { STATS, SS, CLASSES, TIERS, BLD, BOSSES, RANKS, BOSS_RANK } from '../engine/data.js';
-import { S, M, ui, dispatch, members, party, stat, status, unavailable, rosterCap, efx, era, bl } from '../engine/game.js';
+import { S, M, ui, dispatch, members, party, stat, status, unavailable, rosterCap, efx, era, bl, atHome } from '../engine/game.js';
 import HeroCard from './HeroCard.jsx';
 
 export function PartyCard({ p }) {
-  const ms = members(p), busy = !!p.mission, inj = ms.some(unavailable);
-  const state = busy ? <span className="pill warn">{p.mission.quest.title} · {p.mission.daysLeft}d left</span>
+  const ms = members(p), busy = !atHome(p), inj = ms.some(unavailable);
+  const state = p.mission ? <span className="pill warn">{p.mission.quest.title} · {p.mission.daysLeft}d left</span>
+    : busy ? <span className="pill warn">{p.recall ? 'Returning to the tavern' : 'Roaming'}</span>
     : !ms.length ? <span className="pill">Empty</span>
     : inj ? <span className="pill bad">Hero unavailable</span>
     : <span className="pill good">Ready</span>;
   return (
     <section className="squad">
       <div className="phead"><h3>{p.name}</h3>{state}</div>
+      {ms.length > 0 && <div className="hfoot"><button className="btn small" onClick={() => dispatch('selectparty', p.id)}>Orders on the map</button>{busy && <span className="cinfo">Recall the party to the tavern to change its heroes.</span>}</div>}
       <div className="stack">
         {Array.from({ length: 4 }, (_, i) => {
           const h = ms[i];
@@ -49,7 +51,7 @@ export function RosterTab() {
               <>
                 <button className={'btn small' + (h.unread ? ' primary' : '')} onClick={() => dispatch('dossier', h.id)}>{h.unread ? `Journal (${h.unread})` : 'Journal'}</button>
                 {(st === 'ready' || st === 'injured') && <button className="btn small" onClick={() => dispatch('relax', h.id)}>Relax</button>}
-                {st !== 'questing' && (ui.confirm === h.id
+                {st !== 'questing' && st !== 'roaming' && (ui.confirm === h.id
                   ? <button className="btn small danger" onClick={() => dispatch('release', h.id)}>Confirm release</button>
                   : <button className="btn small" onClick={() => dispatch('release', h.id)}>Release</button>)}
               </>

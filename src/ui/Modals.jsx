@@ -50,7 +50,7 @@ function Intro() {
       <ol className="steps">
         <li><b>Hire heroes</b> in the Tavern. Each has a class, rarity and quirks, good and bad. Wages come out every day.</li>
         <li><b>Build parties</b> of up to 4. Different classes boost your odds. A Cleric keeps people alive.</li>
-        <li><b>Send a party on a quest</b> by tapping a pin on the map or using the board. Press <b>End Day</b> to move time forward. Parties walk the roads, and each day something happens, solved on its own by whoever in the party is best suited. Class mix matters. Prefer real time? Switch "Time" at the bottom of the page to Live.</li>
+        <li><b>Send a party on a quest</b> by tapping a pin on the map or using the board. Press <b>End Day</b> to move time forward. Parties walk the roads, and each day something happens, solved on its own by whoever in the party is best suited. Class mix matters. Once a party finishes, it roams the map on its own and takes the nearest quest whenever its odds are 55% or better. Click any party on the map to reassign it or recall it to the tavern. Prefer real time? Switch "Time" to Live.</li>
         <li><b>Watch stress.</b> Fear builds up. At 100 a hero breaks: afflicted, or rarely, heroic. Use the Relax button on the Roster tab to calm them down.</li>
         <li><b>Build their legends.</b> Wins raise a hero’s reputation and losses lower it. As they finish quests, chapters of their backstory write themselves, shaped by how they are regarded. Read it all in each hero’s Journal, on the Roster tab.</li>
         <li><b>Answer crises.</b> Now and then, a red crisis quest appears with a 25-day deadline. If it expires unanswered, or your party fails it, your guild is lost. A banner at the top counts the days down.</li>

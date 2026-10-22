@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { STATS, SL, MAPW, MAPH } from '../engine/data.js';
 import { icon, sprite } from '../engine/art.js';
 import { PCOL, LOC, GUILD, locOf, route, bez, routeD, svgAt, terrain } from '../engine/map.js';
-import { S, ui, dispatch, members, progress, setView, zoomBy } from '../engine/game.js';
+import { S, ui, dispatch, members, progress, setView, zoomBy, partyPos, atHome } from '../engine/game.js';
 import { useTick } from './hooks.js';
 import { Glyph, Pips, PxIcon, stressCls } from './parts.jsx';
 
@@ -122,7 +122,7 @@ export function MapPanel() {
         <g dangerouslySetInnerHTML={{ __html: terrain() }} />
         {Object.keys(LOC).map((n) => <circle key={n} cx={LOC[n].x} cy={LOC[n].y} r="3" fill="#a08a64" opacity=".55"><title>{n}</title></circle>)}
         {act.map(({ p, c }) => {
-          const m = p.mission, q = m.quest, t = m.total || q.days, e = t - m.daysLeft, r = route(q.place), pf = progress(p) / 100;
+          const m = p.mission, q = m.quest, t = m.total || q.days, e = t - m.daysLeft, r = route(q.place, m.origin), pf = progress(p) / 100;
           const marks = [];
           for (let k = 1; k < t; k++) {
             const pt = bez(r, k / t), ev = (m.ev || []).find((x) => x.day === k);
@@ -138,10 +138,7 @@ export function MapPanel() {
             } else marks.push(<circle key={k} cx={pt.x} cy={pt.y} r="4" fill="#1b130f" stroke="#bba98d" strokeOpacity=".6" />);
           }
           return (
-            <g key={p.id} className={ui.selectedParty === p.id ? 'selected-party' : ''} role="button" tabIndex={0}
-              aria-label={`${p.name} traveling to ${q.place}. Click to change route.`}
-              onClick={(e) => { e.stopPropagation(); dispatch('selectparty', p.id); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch('selectparty', p.id); } }}>
+            <g key={p.id}>
               <path className="route" d={routeD(r)} fill="none" stroke="#f1dfbd" strokeOpacity=".35" strokeWidth="2" strokeDasharray="5 5" />
               <path d={routeD(r)} pathLength="1" fill="none" stroke={c} strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${pf.toFixed(3)} 2`} />
               {marks}
@@ -173,16 +170,45 @@ export function MapPanel() {
           <rect x="-11" y="-8" width="22" height="15" fill="#8a6a3a" /><path d="M-14 -8L0 -22L14 -8z" fill="#b0463a" /><rect x="-3" y="0" width="6" height="7" fill="#2b1d10" />
         </g>
         <text className="mlabel" x={GUILD.x} y={GUILD.y + 26} textAnchor="middle">{S.guildName || 'Your guild'}</text>
-        {act.map(({ p, c }) => {
-          const q = p.mission.quest, pos = bez(route(q.place), progress(p) / 100), ms = members(p), n = ms.length;
-          return (
-            <g key={p.id} className="mrun" style={{ transform: `translate(${pos.x.toFixed(1)}px,${pos.y.toFixed(1)}px)` }}>
-              <ellipse cx="0" cy="3" rx={n * 9 + 4} ry="4.5" fill="#000" opacity=".35" />
-              {ms.map((h, i) => <g key={h.id} className="step idle-sprite" dangerouslySetInnerHTML={{ __html: svgAt(sprite(h.cls, h.tier, 18, h.look), (-n * 9 + i * 18).toFixed(0), -20) }} />)}
-              <text className="plabel" x="0" y="-25" textAnchor="middle" fill={c}>{p.name}</text>
+        {S.parties.map((p, i) => {
+          const ms = members(p), n = ms.length;
+          if (!n || p.mission) return null;
+          const c = PCOL[i % PCOL.length], here = p.leg && Math.hypot(p.leg.to.x - p.leg.from.x, p.leg.to.y - p.leg.from.y) > 1;
+          if (atHome(p) && here) return null;
+          const target = p.recall || !p.auto ? GUILD : p.dest;
+          return target && !atHome(p) ? (
+            <g key={'w' + p.id}>
+              <path d={`M${partyPos(p).x.toFixed(1)} ${partyPos(p).y.toFixed(1)}L${target.x} ${target.y}`} stroke={c} strokeOpacity=".55" strokeWidth="2" strokeDasharray="2 6" strokeLinecap="round" fill="none" />
+              {target !== GUILD && <circle className="ping" cx={target.x} cy={target.y} r="7" fill="none" stroke={c} strokeWidth="1.5" />}
             </g>
-          );
+          ) : null;
         })}
+        {(() => {
+          const homeIdx = {};
+          let hc = 0;
+          S.parties.forEach((p) => { if (members(p).length && !p.mission && atHome(p) && !(p.leg && Math.hypot(p.leg.to.x - p.leg.from.x, p.leg.to.y - p.leg.from.y) > 1)) homeIdx[p.id] = hc++; });
+          return S.parties.map((p, i) => {
+            const ms = members(p), n = ms.length;
+            if (!n) return null;
+            const c = PCOL[i % PCOL.length], sel = ui.selectedParty === p.id;
+            const pos = homeIdx[p.id] !== undefined ? { x: GUILD.x + (homeIdx[p.id] - (hc - 1) / 2) * 76, y: GUILD.y + 62 } : partyPos(p);
+            const state = p.mission ? `on "${p.mission.quest.title}"` : p.recall ? 'returning to the tavern' : atHome(p) ? 'at the tavern' : p.auto ? 'roaming' : 'heading home';
+            return (
+              <g key={p.id} className={'mrun party-token' + (sel ? ' selected-party' : '')} role="button" tabIndex={0}
+                aria-label={`${p.name}, ${state}. Open orders.`}
+                style={{ transform: `translate(${pos.x.toFixed(1)}px,${pos.y.toFixed(1)}px)` }}
+                onClick={(e) => { e.stopPropagation(); if (ui.mapMoved) { ui.mapMoved = false; return; } dispatch('selectparty', p.id); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch('selectparty', p.id); } }}>
+                <rect x={-n * 9 - 8} y="-34" width={n * 18 + 16} height="46" fill="transparent" />
+                {sel && <ellipse cx="0" cy="3" rx={n * 9 + 9} ry="7" fill="none" stroke="#f5c56f" strokeWidth="2" strokeDasharray="4 3" />}
+                <ellipse cx="0" cy="3" rx={n * 9 + 4} ry="4.5" fill="#000" opacity=".35" />
+                {ms.map((h, k) => <g key={h.id} className="step idle-sprite" dangerouslySetInnerHTML={{ __html: svgAt(sprite(h.cls, h.tier, 18, h.look), (-n * 9 + k * 18).toFixed(0), -20) }} />)}
+                <text className="plabel" x="0" y="-25" textAnchor="middle" fill={c}>{p.name}</text>
+                <title>{p.name}: {state}</title>
+              </g>
+            );
+          });
+        })()}
         <text x={MAPW - 14} y="22" textAnchor="end" className="mlabel">N</text>
       </svg>
       <div className="mapctl">
