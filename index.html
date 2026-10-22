@@ -196,14 +196,21 @@ i.good{background:var(--good)} i.warn{background:var(--warn)} i.bad{background:v
 .opt small.safe{color:var(--good)} .opt small.risky{color:var(--bad)} .opt small.even{color:var(--warn)}
 .opt small.need{color:var(--mute)}
 /* map */
-.mapwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:#1a2a21}
-.map{display:block;width:100%;min-width:560px;height:auto}
+.qlayout{display:grid;grid-template-columns:minmax(0,470px) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.qlayout{grid-template-columns:minmax(0,1fr)}}
+.mapbox{position:relative;width:100%;max-width:470px;aspect-ratio:640/430;border:1px solid var(--line);border-radius:8px;background:#1a2a21;overflow:hidden;user-select:none;-webkit-user-select:none}
+.map{display:block;width:100%;height:100%}
+.mapctl{position:absolute;top:6px;right:6px;display:flex;flex-direction:column;gap:4px;z-index:2}
+.mapctl button{width:32px;height:32px;border-radius:6px;border:1px solid var(--line);background:rgba(14,18,22,.85);color:var(--fg);font-weight:700;font-size:17px;line-height:1;padding:0}
+.mapctl button.fit{font-size:11px}
+.mapctl button:hover{border-color:var(--brass)}
+.maphint{position:absolute;left:8px;bottom:6px;font-size:11px;color:#9fb0a3;pointer-events:none;text-shadow:0 1px 2px #000}
 .mrun{transition:transform .12s linear}
-.mlabel{font:700 10px var(--body);fill:#e7e1d1;paint-order:stroke;stroke:#0e1216;stroke-width:3px;stroke-linejoin:round}
-.plabel{font:700 10px var(--body);paint-order:stroke;stroke:#0e1216;stroke-width:3px;stroke-linejoin:round}
+.mlabel{font:700 13px var(--body);fill:#e7e1d1;paint-order:stroke;stroke:#0e1216;stroke-width:3px;stroke-linejoin:round}
+.plabel{font:700 12px var(--body);paint-order:stroke;stroke:#0e1216;stroke-width:3px;stroke-linejoin:round}
 .pin{cursor:pointer}
 .pin:hover .pinc{fill:#4a3d18}
-.pinn{font:700 12px var(--body);fill:#e7e1d1;pointer-events:none}
+.pinn{font:700 15px var(--body);fill:#e7e1d1;pointer-events:none}
 .pin.hot .pinc{animation:throb2 1.3s ease-in-out infinite}
 @keyframes throb2{50%{fill:#5a1f1a}}
 @media (prefers-reduced-motion:reduce){.pin.hot .pinc{animation:none}.mrun{transition:none}}
@@ -487,7 +494,7 @@ const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let S=null,M=null;
 const MODEKEY='guildmaster-mode';
-let ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{},mode:'manual',advancing:false};
+let ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{},mode:'manual',advancing:false,mv:{x:0,y:0,w:640}};
 try{if(localStorage.getItem(MODEKEY)==='live')ui.mode='live'}catch(e){}
 const uid=()=>S.nid++;
 const perk=id=>(M.perks[id]||0);
@@ -1114,7 +1121,7 @@ function terrain(){
 }
 function mapSvg(){
   const act=S.parties.map((p,i)=>({p,i,c:PCOL[i%PCOL.length]})).filter(x=>x.p.mission);
-  let s=`<svg class="map" viewBox="0 0 ${MAPW} ${MAPH}" role="img" aria-label="Map of the realm">${terrain()}`;
+  const v=ui.mv;let s=`<svg class="map" viewBox="${v.x} ${v.y} ${v.w} ${v.w*MAPH/MAPW}" role="img" aria-label="Map of the realm">${terrain()}`;
   Object.keys(LOC).forEach(n=>{const l=LOC[n];s+=`<circle cx="${l.x}" cy="${l.y}" r="3" fill="#7d8c97" opacity=".5"><title>${esc(n)}</title></circle>`});
   act.forEach(({p,c})=>{
     const m=p.mission,q=m.quest,t=m.total||q.days,e=t-m.daysLeft,r=route(q.place),pf=progress(p)/100;
@@ -1127,21 +1134,21 @@ function mapSvg(){
         s+=`<g><circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="9" fill="#161c22" stroke="${col}" stroke-width="2"/>${svgAt(icon(ev.icon,12),(pt.x-6).toFixed(1),(pt.y-6).toFixed(1))}<title>${esc(ev.t)}</title></g>`;
       }else s+=`<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="4" fill="#161c22" stroke="#93a0ab" stroke-opacity=".6"/>`;
     }
-    s+=`<g><circle cx="${r.L.x}" cy="${r.L.y}" r="14" fill="#161c22" stroke="${c}" stroke-width="2.5"/>${svgAt(icon('boss',16),r.L.x-8,r.L.y-8)}<text class="mlabel" x="${r.L.x}" y="${r.L.y+27}" text-anchor="middle">${esc(q.place)}</text></g>`;
+    s+=`<g><circle cx="${r.L.x}" cy="${r.L.y}" r="14" fill="#161c22" stroke="${c}" stroke-width="2.5"/>${svgAt(icon('boss',16),r.L.x-8,r.L.y-8)}<text class="mlabel" x="${r.L.x}" y="${r.L.y+31}" text-anchor="middle">${esc(q.place)}</text></g>`;
   });
   const groups={};
   S.board.forEach(q=>{(groups[q.place]=groups[q.place]||[]).push(q)});
   Object.keys(groups).forEach(pl=>{
     const l=locOf(pl),arr=groups[pl];
     arr.forEach((q,i)=>{
-      const x=l.x+(i-(arr.length-1)/2)*28,y=l.y-19,hot=q.crisis||q.boss;
-      s+=`<g class="pin${hot?' hot':''}" data-act="assign" data-a="${q.id}"><circle cx="${x}" cy="${y}" r="18" fill="transparent"/><path d="M${x} ${y+12}L${l.x} ${l.y-3}" stroke="${hot?'#dc6652':'#d4aa4f'}" stroke-width="1.5" opacity=".7"/><circle class="pinc" cx="${x}" cy="${y}" r="12" fill="#2a2415" stroke="${hot?'#dc6652':'#d4aa4f'}" stroke-width="2"/><text class="pinn" x="${x}" y="${y+4.5}" text-anchor="middle">${q.d}</text><title>${esc(q.title)} at ${esc(pl)}. Danger ${q.d}. Click to send a party.</title></g>`;
+      const x=l.x+(i-(arr.length-1)/2)*34,y=l.y-24,hot=q.crisis||q.boss;
+      s+=`<g class="pin${hot?' hot':''}" data-act="assign" data-a="${q.id}"><circle cx="${x}" cy="${y}" r="21" fill="transparent"/><path d="M${x} ${y+15}L${l.x} ${l.y-3}" stroke="${hot?'#dc6652':'#d4aa4f'}" stroke-width="1.5" opacity=".7"/><circle class="pinc" cx="${x}" cy="${y}" r="15" fill="#2a2415" stroke="${hot?'#dc6652':'#d4aa4f'}" stroke-width="2.2"/><text class="pinn" x="${x}" y="${y+5.5}" text-anchor="middle">${q.d}</text><title>${esc(q.title)} at ${esc(pl)}. Danger ${q.d}. Click to send a party.</title></g>`;
     });
   });
-  s+=`<g transform="translate(${GUILD.x} ${GUILD.y})"><rect x="-11" y="-8" width="22" height="15" fill="#8a6a3a"/><path d="M-14 -8L0 -22L14 -8z" fill="#b0463a"/><rect x="-3" y="0" width="6" height="7" fill="#2b1d10"/></g><text class="mlabel" x="${GUILD.x}" y="${GUILD.y+22}" text-anchor="middle">${esc(S.guildName||'Your guild')}</text>`;
+  s+=`<g transform="translate(${GUILD.x} ${GUILD.y})"><rect x="-11" y="-8" width="22" height="15" fill="#8a6a3a"/><path d="M-14 -8L0 -22L14 -8z" fill="#b0463a"/><rect x="-3" y="0" width="6" height="7" fill="#2b1d10"/></g><text class="mlabel" x="${GUILD.x}" y="${GUILD.y+26}" text-anchor="middle">${esc(S.guildName||'Your guild')}</text>`;
   act.forEach(({p,c})=>{
     const q=p.mission.quest,pos=bez(route(q.place),progress(p)/100),ms=members(p),n=ms.length;
-    s+=`<g class="mrun" data-pid="${p.id}" style="transform:translate(${pos.x.toFixed(1)}px,${pos.y.toFixed(1)}px)"><ellipse cx="0" cy="3" rx="${n*7+4}" ry="4" fill="#000" opacity=".35"/>${ms.map((h,i)=>svgAt(sprite(h.cls,h.tier,14,h.look),(-n*7+i*14).toFixed(0),-15)).join('')}<text class="plabel" x="0" y="-20" text-anchor="middle" fill="${c}">${esc(p.name)}</text></g>`;
+    s+=`<g class="mrun" data-pid="${p.id}" style="transform:translate(${pos.x.toFixed(1)}px,${pos.y.toFixed(1)}px)"><ellipse cx="0" cy="3" rx="${n*9+4}" ry="4.5" fill="#000" opacity=".35"/>${ms.map((h,i)=>svgAt(sprite(h.cls,h.tier,18,h.look),(-n*9+i*18).toFixed(0),-20)).join('')}<text class="plabel" x="0" y="-25" text-anchor="middle" fill="${c}">${esc(p.name)}</text></g>`;
   });
   s+=`<text x="${MAPW-14}" y="22" text-anchor="end" class="mlabel">N</text></svg>`;
   return s;
@@ -1191,11 +1198,16 @@ function renderRank(){
 function renderTab(){
   if(ui.tab==='quests'){
     const out=S.parties.filter(p=>p.mission);
-    return `<div class="sect"><h2>The realm</h2><span class="cinfo">Tap a numbered pin (its danger level) to send a party there.</span></div>
-      <div class="mapwrap">${mapSvg()}</div>
-      <div class="maplegend"><span><i class="lg pin1"></i>Quest on the board</span><span><i class="lg pin2"></i>Crisis or final quest</span><span><i class="lg pin3"></i>A party’s destination</span></div>
-      <div class="sect"><h2>Out on quests</h2><span class="cinfo">Each day, a party travels a step and meets something on the road.</span></div>
-      ${out.length?`<div class="grid">${out.map(missionCard).join('')}</div>`:`<div class="empty">No party is out. Pick a quest on the map or the board and send someone.</div>`}
+    return `<div class="qlayout"><div class="mapcol">
+      <div class="sect"><h2>The realm</h2><span class="cinfo">Tap a numbered pin to send a party.</span></div>
+      <div class="mapbox" style="touch-action:${ui.mv.w<MAPW?'none':'pan-y'}">${mapSvg()}
+        <div class="mapctl"><button data-act="mz" data-a="in" aria-label="Zoom in">+</button><button data-act="mz" data-a="out" aria-label="Zoom out">−</button><button class="fit" data-act="mz" data-a="fit" aria-label="Fit the whole map">Fit</button></div>
+        <div class="maphint">Scroll, pinch or drag to explore</div></div>
+      <div class="maplegend"><span><i class="lg pin1"></i>Quest (danger)</span><span><i class="lg pin2"></i>Crisis or final</span><span><i class="lg pin3"></i>Destination</span></div>
+      </div><div class="outcol">
+      <div class="sect"><h2>Out on quests</h2><span class="cinfo">Each day, a party travels a step.</span></div>
+      ${out.length?`<div class="stack">${out.map(missionCard).join('')}</div>`:`<div class="empty">No party is out. Tap a pin on the map or pick from the board below.</div>`}
+      </div></div>
       <div class="sect"><h2>Quest board</h2><span class="cinfo">Higher danger pays more, but your odds drop.</span></div>
       ${S.board.length?`<div class="grid">${S.board.map(questCard).join('')}</div>`:`<div class="empty">The board is empty. End the day for new quests.</div>`}`;
   }
@@ -1425,6 +1437,57 @@ function render(){
   try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
 }
 
+/* ---------- map zoom and pan ---------- */
+function setView(x,y,w){
+  w=clamp(w,150,MAPW);const h=w*MAPH/MAPW;
+  x=clamp(x,0,MAPW-w);y=clamp(y,0,MAPH-h);
+  ui.mv={x,y,w};
+  const sv=document.querySelector('svg.map');
+  if(sv)sv.setAttribute('viewBox',`${x} ${y} ${w} ${h}`);
+  const box=document.querySelector('.mapbox');
+  if(box)box.style.touchAction=w<MAPW?'none':'pan-y';
+}
+function zoomBy(f,fx,fy){
+  fx=fx===undefined?.5:fx;fy=fy===undefined?.5:fy;
+  const v=ui.mv,nw=clamp(v.w/f,150,MAPW),h=v.w*MAPH/MAPW,nh=nw*MAPH/MAPW;
+  setView(v.x+(v.w-nw)*fx,v.y+(h-nh)*fy,nw);
+}
+(function(){
+  const pts=new Map();let drag=null,pinch=0;
+  const box=e=>e.target.closest&&e.target.closest('.mapbox');
+  document.addEventListener('pointerdown',e=>{
+    if(!box(e)||e.target.closest('.mapctl'))return;
+    ui.mapMoved=false;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1)drag={x:e.clientX,y:e.clientY,v:{...ui.mv}};
+    else if(pts.size===2){const [a,b]=[...pts.values()];pinch=Math.hypot(a.x-b.x,a.y-b.y);drag=null}
+  });
+  document.addEventListener('pointermove',e=>{
+    if(!pts.has(e.pointerId))return;
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const bx=document.querySelector('.mapbox');if(!bx)return;
+    const r=bx.getBoundingClientRect();
+    if(pts.size===2){
+      const [a,b]=[...pts.values()],d=Math.hypot(a.x-b.x,a.y-b.y);
+      if(pinch>0&&d>0){zoomBy(d/pinch,((a.x+b.x)/2-r.left)/r.width,((a.y+b.y)/2-r.top)/r.height);pinch=d;ui.mapMoved=true}
+    }else if(drag&&drag.v.w<MAPW){
+      const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+      if(Math.abs(dx)+Math.abs(dy)>6)ui.mapMoved=true;
+      if(ui.mapMoved)setView(drag.v.x-dx*drag.v.w/r.width,drag.v.y-dy*drag.v.w/r.width,drag.v.w);
+    }
+  });
+  const end=e=>{pts.delete(e.pointerId);if(!pts.size){drag=null;pinch=0}};
+  document.addEventListener('pointerup',end);
+  document.addEventListener('pointercancel',end);
+  document.addEventListener('click',e=>{if(ui.mapMoved){e.stopPropagation();e.preventDefault();ui.mapMoved=false}},true);
+  document.addEventListener('wheel',e=>{
+    const bx=box(e);if(!bx)return;
+    if(e.deltaY>0&&ui.mv.w>=MAPW)return;
+    e.preventDefault();
+    const r=bx.getBoundingClientRect();
+    zoomBy(e.deltaY<0?1.2:1/1.2,(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);
+  },{passive:false});
+})();
+
 /* ---------- live clock ---------- */
 const DAY_MS=7000;
 function renderToasts(){
@@ -1485,6 +1548,7 @@ document.addEventListener('click',e=>{
       ui.mode=ui.mode==='live'?'manual':'live';ui.paused=true;ui.advancing=false;ui.frac=0;
       try{localStorage.setItem(MODEKEY,ui.mode)}catch(e){}
       break;
+    case 'mz':if(a==='fit')setView(0,0,MAPW);else zoomBy(a==='in'?1.5:1/1.5);break;
     case 'speed':if(a==='0')ui.paused=true;else{ui.paused=false;ui.speed=+a}break;
     case 'assign':ui.modal={type:'assign',qid:a};break;
     case 'send':{
@@ -1562,7 +1626,7 @@ document.addEventListener('click',e=>{
       if(cost!==undefined&&M.legacy>=cost){M.legacy-=cost;M.perks[a]=perk(a)+1;saveMeta()}
       break;
     }
-    case 'begin':{const first=!M.runs.length;ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{},mode:ui.mode,advancing:false};newGame();ui.introAfter=first;break}
+    case 'begin':{const first=!M.runs.length;ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{},mode:ui.mode,advancing:false,mv:{x:0,y:0,w:640}};newGame();ui.introAfter=first;break}
   }
   if(el.dataset.act!=='release'&&el.dataset.act!=='tab')ui.confirm=null;
   render();
