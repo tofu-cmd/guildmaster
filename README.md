@@ -65,3 +65,19 @@ resulting state. The second argument skips the two random numbers React itself c
 
 Import the repository in Vercel. It detects Vite; `vercel.json` already sets the build command and
 output folder.
+
+## Publishing on itch.io
+
+itch.io runs HTML5 games from a ZIP that has `index.html` at its top level. The single-file build is
+ideal because there are no asset paths to break.
+
+```bash
+npm run build:single      # writes dist-single/index.html
+# zip that one file as index.html at the root of the archive
+```
+
+On itch.io: create a project, set **Kind of project** to **HTML**, upload the ZIP, tick
+**This file will be played in the browser**, and set the viewport to about 1280 x 800 with the
+fullscreen button enabled. Saves use `localStorage`; some browsers block it inside third-party
+frames (private windows, strict tracking protection), in which case progress lasts only for the
+session. The fonts load from Google Fonts.
