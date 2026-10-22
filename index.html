@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Guildmaster: run an adventurers' guild, manage stress and stories, and slay the final boss.">
+<meta name="theme-color" content="#0e1216">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%230e1216'/%3E%3Cpath d='M3 0h2v1h1v1H5v3h1v1H5v2H3V6H2V5h1V2H2V1h1z' fill='%23d4aa4f'/%3E%3C/svg%3E">
+<title>Guildmaster</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700&family=Pirata+One&display=swap">
+<style>
+/* Layout: sticky day/gold/End Day bar, rank panel, five tabs (Quests, Parties, Roster, Tavern, Guild), ledger at the bottom. Single dark look, brass accent on blue-black. */
+:root{
+  --bg:#0e1216; --panel:#161c22; --panel2:#1d252d; --line:#2b3640;
+  --fg:#e7e1d1; --mute:#93a0ab; --brass:#d4aa4f; --brass-ink:#1a1405;
+  --good:#7fb069; --warn:#e2a93b; --bad:#dc6652; --dread:#a566c9;
+  --t0:#a3adb5; --t1:#72c177; --t2:#5ea6ec; --t3:#b97cef; --t4:#f3a93c;
+  --display:'Pirata One',Georgia,serif; --body:'Alegreya Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.4 var(--body);font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+.wrap{max-width:1040px;margin:0 auto;padding-block:0 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);font-weight:400;margin:0;letter-spacing:.02em;text-wrap:balance}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 12px;font-weight:500}
+.btn:hover:not(:disabled){border-color:var(--brass)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:var(--brass);color:var(--brass-ink);border-color:var(--brass);font-weight:700}
+.btn.primary:hover:not(:disabled){filter:brightness(1.1)}
+.btn.small{padding:4px 9px;font-size:14px}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.mute{color:var(--mute)}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding-block:10px;border-bottom:1px solid var(--line)}
+.logo{font-family:var(--display);font-size:28px;color:var(--brass);line-height:1;margin-right:auto}
+.chip{display:flex;flex-direction:column;line-height:1.1}
+.chip small{color:var(--mute);font-size:11px;text-transform:uppercase;letter-spacing:.1em}
+.chip b{font-size:20px;font-weight:700}
+.neg{color:var(--bad)}
+
+/* rank */
+.rank{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:center;padding-block:16px}
+.rletter{font-family:var(--display);font-size:54px;line-height:.9;color:var(--brass);min-width:48px;text-align:center}
+.rname{font-size:20px;font-family:var(--display)}
+.meter{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+.meter i{display:block;height:100%;background:var(--brass)}
+.rinfo{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 18px;font-size:14px;color:var(--mute)}
+.rinfo b{color:var(--fg);font-weight:500}
+.era{color:var(--dread)!important}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font-weight:700;color:var(--mute);white-space:nowrap}
+.tab.on{color:var(--fg);border-color:var(--brass)}
+.tab em{font-style:normal;color:var(--brass);margin-left:4px}
+.sect{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:22px 0 10px;flex-wrap:wrap}
+.sect:first-child{margin-top:0}
+.sect h2{font-size:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));gap:12px}
+.empty{padding:22px;border:1px dashed var(--line);border-radius:8px;color:var(--mute);text-align:center}
+
+/* quest card */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card.crisis{border-color:var(--bad);background:linear-gradient(180deg,#2e1512,var(--panel) 75%)}
+.crisisbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding:8px 12px;border:1px solid var(--bad);border-radius:8px;background:#2a1614}
+.crisisbar b{color:var(--bad)}
+.crisisbar.hot{animation:throb 1.2s ease-in-out infinite}
+@keyframes throb{50%{background:#4a1c18}}
+@media (prefers-reduced-motion:reduce){.crisisbar.hot{animation:none}}
+.card.boss{border-color:var(--bad);background:linear-gradient(180deg,#2a1614,var(--panel) 70%)}
+.qtop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.qtitle{font-family:var(--display);font-size:21px;line-height:1.15;min-width:0}
+.qtype{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--mute)}
+.card.boss .qtype{color:var(--bad);font-weight:700}
+.pips{display:flex;gap:2px;align-items:center}
+.pips i{width:8px;height:8px;transform:rotate(45deg);background:var(--line)}
+.pips i.on{background:var(--bad)}
+.dlabel{white-space:nowrap;font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--bad);font-weight:700;text-align:right}
+.needs{display:flex;flex-wrap:wrap;gap:6px}
+.need{font-size:13px;padding:2px 8px;border-radius:99px;background:var(--panel2);border:1px solid var(--line)}
+.rew{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:15px}
+.rew b{color:var(--brass)}
+.qfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:auto}
+
+/* hero */
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;min-width:0}
+.hero.compact{background:var(--panel2)}
+.hmain{min-width:0}
+.hname{font-weight:700;font-size:17px;line-height:1.15;overflow-wrap:anywhere}
+.hname.t0{color:var(--t0)} .hname.t1{color:var(--t1)} .hname.t2{color:var(--t2)} .hname.t3{color:var(--t3)} .hname.t4{color:var(--t4)}
+.hsub{font-size:13px;color:var(--mute)}
+.hstats{display:flex;gap:10px;margin-top:3px;font-size:12px;color:var(--mute);letter-spacing:.05em}
+.hstats b{color:var(--fg);font-size:15px;margin-right:2px}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.tag{font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--mute);cursor:help}
+.tag.pos{color:var(--good);border-color:#3c5a35} .tag.neg{color:var(--bad);border-color:#6a3a32}
+.tag.aff{color:#fff;background:#6a2a2a;border-color:var(--bad);font-weight:700}
+.tag.vir{color:var(--brass-ink);background:var(--brass);border-color:var(--brass);font-weight:700}
+.stress{height:5px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}
+.stress i{display:block;height:100%;background:var(--dread)}
+.stress.mid i{background:var(--warn)} .stress.hi i{background:var(--bad)}
+.xp{height:3px;background:var(--line);border-radius:2px;margin-top:4px;overflow:hidden}
+.xp i{display:block;height:100%;background:var(--brass)}
+.hside{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.pill{font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;border:1px solid var(--line);white-space:nowrap}
+.pill.bad{color:var(--bad);border-color:var(--bad)} .pill.warn{color:var(--warn);border-color:var(--warn)} .pill.good{color:var(--good);border-color:var(--good)}
+.cinfo{font-size:13px;color:var(--mute)}
+
+/* party */
+.party{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.phead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.phead h3{font-size:22px}
+.slot-add{border:1px dashed var(--line);background:none;border-radius:8px;padding:12px;color:var(--mute);font-weight:500}
+.slot-add:hover{border-color:var(--brass);color:var(--fg)}
+.ptotals{display:flex;gap:14px;font-size:13px;color:var(--mute);flex-wrap:wrap;padding-top:2px}
+.ptotals b{color:var(--fg);font-size:15px}
+
+/* odds */
+.odds{display:flex;align-items:center;gap:8px;min-width:0}
+.obar{flex:1;height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+.obar i{display:block;height:100%}
+.good{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+i.good{background:var(--good)} i.warn{background:var(--warn)} i.bad{background:var(--bad)}
+.odds b{min-width:3.2em;text-align:right}
+
+/* sprites + mission tracks */
+.spr{width:46px;height:46px;border-radius:8px;display:grid;place-items:center;background:var(--panel2);border:2px solid var(--t0)}
+.spr.t1{border-color:var(--t1)} .spr.t2{border-color:var(--t2)} .spr.t3{border-color:var(--t3)} .spr.t4{border-color:var(--t4)}
+.pix{display:block;image-rendering:pixelated}
+.track{position:relative;height:84px;margin:4px 46px 0}
+.rail,.fill{position:absolute;left:0;bottom:11px;height:8px;border-radius:4px}
+.rail{right:0;background:var(--panel2);border:1px solid var(--line)}
+.fill{background:var(--brass);transition:width .12s linear}
+.node{position:absolute;bottom:2px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:var(--panel);border:2px solid var(--line);display:grid;place-items:center}
+.node.good{border-color:var(--good)} .node.bad{border-color:var(--bad)} .node.pending{border-color:var(--brass);color:var(--brass);font-weight:700}
+.node.unk{opacity:.6;color:var(--mute);font-weight:700;font-size:13px}
+.node.goal{opacity:.75}
+.node.new{animation:pop .4s 1.5s both}
+.runner{position:absolute;bottom:26px;display:flex;transform:translateX(-50%);transition:left .12s linear;z-index:2}
+.runner .pix{animation:bob .5s steps(2) infinite}
+.runner .pix:nth-child(2){animation-delay:.12s} .runner .pix:nth-child(3){animation-delay:.24s} .runner .pix:nth-child(4){animation-delay:.36s}
+@keyframes bob{50%{transform:translateY(-2px)}}
+@keyframes pop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:scale(1)}}
+.mstress{display:flex;gap:8px;flex-wrap:wrap}
+.mstress div{flex:1;min-width:70px}
+.mstress small{font-size:11px;color:var(--mute);display:block}
+.mlog{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.mlog>div{display:flex;gap:8px;align-items:center}
+.mlog .pix{flex:none}
+.mlog b{color:var(--fg)}
+@media (prefers-reduced-motion:reduce){.runner .pix,.node.new{animation:none}.fill,.runner{transition:none}}
+
+/* guild hall */
+.bld{display:flex;flex-direction:column;gap:8px}
+.bpips{display:flex;gap:4px}
+.bpips i{width:14px;height:8px;border-radius:2px;background:var(--line)}
+.bpips i.on{background:var(--brass)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.panel h3{font-size:22px}
+.panel.dread{border-color:var(--dread)}
+
+/* ledger + footer */
+.ledger{margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
+.ledger h2{font-size:22px;margin-bottom:8px}
+.ledger ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.ledger li{color:var(--mute)}
+.ledger li span{color:var(--brass);margin-right:8px;font-weight:700}
+.foot{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+
+/* modal */
+.back{position:fixed;inset:0;z-index:40;background:rgba(5,8,11,.78);display:grid;place-items:center;padding:16px}
+.modal{background:var(--panel);border:1px solid var(--brass);border-radius:10px;width:100%;max-width:600px;max-height:calc(100% - 8px);overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.modal.dark{border-color:var(--dread)}
+.modal h2{font-size:28px;color:var(--brass)}
+.modal.dark h2{color:var(--dread)}
+.modal p{margin:0}
+.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.mact{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.ev{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.ev li{padding:8px 10px;border-radius:6px;background:var(--panel2);border:1px solid var(--line)}
+.ev li.win{border-color:var(--good)} .ev li.loss{border-color:var(--bad)} .ev li.death{border-color:var(--bad);background:#2a1614}
+.ev li.rank,.ev li.lvl{border-color:var(--brass)}
+.arow{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.arow .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.names{font-size:14px;color:var(--mute)}
+.stack{display:flex;flex-direction:column;gap:8px}
+.dhead{display:flex;gap:12px;align-items:center}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.opt:hover:not(:disabled){border-color:var(--brass)}
+.opt:disabled{opacity:.45;cursor:not-allowed}
+.opt small{color:var(--mute);white-space:nowrap}
+.opt small.safe{color:var(--good)} .opt small.risky{color:var(--bad)} .opt small.even{color:var(--warn)}
+.opt small.need{color:var(--mute)}
+/* live clock */
+.speed{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.speed button{background:var(--panel2);border:0;border-right:1px solid var(--line);padding:6px 11px;font-weight:700;color:var(--mute)}
+.speed button:last-child{border-right:0}
+.speed button.on{background:var(--brass);color:var(--brass-ink)}
+.daymeter{flex-basis:100%;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.daymeter i{display:block;height:100%;background:var(--brass)}
+#toasts{position:fixed;z-index:35;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));left:max(12px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:6px;align-items:flex-end;pointer-events:none}
+.toast{pointer-events:auto;max-width:420px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.toast.win{border-color:var(--good)} .toast.loss{border-color:var(--bad)} .toast.lvl{border-color:var(--brass)}
+/* reputation + backstory */
+.tag.story{color:var(--brass);border-color:var(--brass-d,#8d6f2b)}
+.rep{font-size:12px;margin-top:4px;color:var(--mute)}
+.rep b{font-weight:700}
+.r-top{color:var(--t4)} .r-high{color:var(--good)} .r-mid{color:var(--mute)} .r-low{color:var(--warn)} .r-bad{color:var(--bad)}
+.chap{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.chap p{margin:0}
+.chap.pend{border-color:var(--brass)}
+.chap.lock{opacity:.6;font-style:italic}
+.chead{font-family:var(--display);font-size:19px;color:var(--brass)}
+.sopt{display:flex;flex-direction:column;gap:6px;text-align:left;width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px}
+.sopt:hover{border-color:var(--brass)}
+.sopt>b{font-family:var(--display);font-weight:400;font-size:20px}
+.stext{font-size:15px;line-height:1.4}
+@media (prefers-reduced-motion:no-preference){.btn,.tab,.slot-add,.opt,.sopt{transition:border-color .15s,filter .15s}}
+
+body{margin:0}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+(()=>{
+'use strict';
+/* ---------- data ---------- */
+const STATS=['might','magic','agility','wits'];
+const SL={might:'Might',magic:'Magic',agility:'Agility',wits:'Wits'};
+const SS={might:'MIT',magic:'MAG',agility:'AGI',wits:'WIT'};
+const CLASSES={
+  warrior:{n:'Warrior',base:{might:8,magic:1,agility:3,wits:2},role:'Front-line bruiser. Huge Might.'},
+  mage:{n:'Mage',base:{might:1,magic:8,agility:2,wits:3},role:'Spell damage. Huge Magic.'},
+  rogue:{n:'Rogue',base:{might:3,magic:1,agility:8,wits:3},role:'Fast and sneaky. Huge Agility.'},
+  cleric:{n:'Cleric',base:{might:2,magic:5,agility:2,wits:5},role:'Healer. Halves injury and death risk for the whole party.'},
+  ranger:{n:'Ranger',base:{might:4,magic:2,agility:6,wits:4},role:'Well-rounded archer.'},
+  paladin:{n:'Paladin',lock:true,base:{might:6,magic:3,agility:1,wits:4},role:'Holy knight. Party gains 15% less stress.'},
+  bard:{n:'Bard',lock:true,base:{might:1,magic:3,agility:4,wits:7},role:'Calms nerves. Party gains 20% less stress.'}
+};
+const TIERS=[
+  {n:'Common',mult:1,hire:60,wage:2},{n:'Uncommon',mult:1.6,hire:180,wage:5},
+  {n:'Rare',mult:2.5,hire:550,wage:12},{n:'Epic',mult:4,hire:1700,wage:30},{n:'Legendary',mult:6.5,hire:5500,wage:70}
+];
+const RT=[0,40,150,400,900,1800,3500,6500];
+const RANKS=[{l:'F',n:'Ragged Tavern'},{l:'E',n:'Local Hall'},{l:'D',n:'Town Guild'},{l:'C',n:'Regional Guild'},{l:'B',n:'Famed Guild'},{l:'A',n:'Grand Guild'},{l:'S',n:'Royal Guild'},{l:'SS',n:'Legendary Guild'}];
+const TIER_CAP=[0,1,1,2,2,3,3,4];
+const BOSS_RANK=6;
+const FIRST=['Aldric','Brea','Cael','Dara','Edda','Fenn','Garrick','Hana','Isolde','Joren','Kestrel','Lyra','Marek','Nessa','Orin','Pell','Quill','Rhea','Soren','Tamsin','Ulric','Vesper','Wren','Yara','Zeph','Bram','Corin','Dunya','Eryk','Freya'];
+const EPI=['the Unbroken','Ashbringer','of the Hollow','Stormcaller','the Grim','Dawnwarden','Oathkeeper','the Pale','Gravewalker','Emberhand','the Swift','Skyrender'];
+const PARTY_NAMES=['Iron Wolves','Ember Company','Grey Lanterns','Thorn and Crow','Silver Pact'];
+const QTYPES=[
+  {k:'Monster hunt',w:{might:.6,agility:.25,wits:.15},f:(m)=>`Slay the ${m}`},
+  {k:'Dungeon delve',w:{agility:.4,magic:.3,wits:.3},f:(m,p)=>`Delve into ${p}`},
+  {k:'Escort',w:{might:.4,agility:.2,wits:.4},f:(m,p)=>`Escort a caravan past ${p}`},
+  {k:'Arcane work',w:{magic:.6,wits:.4},f:(m,p)=>`Recover the relic of ${p}`},
+  {k:'Bounty',w:{agility:.5,might:.3,wits:.2},f:(m,p)=>`Bounty: ${m} near ${p}`}
+];
+const MON=[
+  ['Giant Rats','Goblin Scouts','Wolf Pack','Bog Imps'],
+  ['Bandit Gang','Ogre','Skeleton Patrol','Harpies'],
+  ['Cave Troll','Wraith','Young Drake','Cult Mages'],
+  ['Demon Knight','Lich','Wyrm','Stone Giant'],
+  ['Elder Dragon','Void Titan','Archdemon','Hydra Queen']
+];
+const PLACE=[
+  ['the Old Cellar','Mossy Culvert','Farmer Hale’s Field','the Pale Woods'],
+  ['Ashen Mine','Bandit Pass','the Sunken Crypt','Thornwood'],
+  ['Gloam Keep','the Ruined Abbey','Cinder Fen','Frost Barrow'],
+  ['Obsidian Citadel','the Drowned Temple','Bone Spire','the Ember Throne'],
+  ['the Black Sun Vault','Worldsplit Chasm','the Dreaming Abyss','Dragon’s Crown']
+];
+const BOSSES=[
+  {n:'Vorathrax, the Black Sun Dragon',place:'the Black Sun Vault',w:{might:.4,magic:.3,agility:.1,wits:.2},lore:'A dragon whose shadow has swallowed three towns.'},
+  {n:'The Hollow King',place:'the Drowned Throne',w:{magic:.5,wits:.3,might:.2},lore:'A dead monarch who raises the drowned to his court.'},
+  {n:'The Maw Beneath',place:'Worldsplit Chasm',w:{agility:.35,might:.35,wits:.3},lore:'Something vast has been chewing up the roads from below.'}
+];
+const ERAS=[
+  {id:'plague',n:'Year of Plague',d:'Injuries last 1 day longer. Gold rewards +25%.',fx:{heal:1,gold:1.25}},
+  {id:'rush',n:'Gold Rush',d:'Gold rewards +35%, wages +30%.',fx:{gold:1.35,wage:1.3}},
+  {id:'haunt',n:'Haunted Age',d:'Stress gain +30%. Renown rewards +25%.',fx:{stress:1.3,renown:1.25}},
+  {id:'peace',n:'Quiet Years',d:'Quests are 10% easier. Gold rewards -15%.',fx:{diff:.9,gold:.85}},
+  {id:'war',n:'Time of War',d:'Quests are 12% harder. Renown rewards +30%.',fx:{diff:1.12,renown:1.3}}
+];
+const QUIRKS={
+  lucky:{n:'Lucky',pos:1,d:'+3% quest odds',fx:{odds:.03}},
+  stoic:{n:'Stoic',pos:1,d:'Gains 30% less stress',fx:{stress:.7}},
+  tough:{n:'Tough',pos:1,d:'30% less likely to be injured',fx:{injury:.7}},
+  quick:{n:'Quick Learner',pos:1,d:'+30% XP',fx:{xp:1.3}},
+  frugal:{n:'Frugal',pos:1,d:'Wage 30% lower',fx:{wage:.7}},
+  slayer:{n:'Monster Slayer',pos:1,d:'+6% odds on monster hunts and bounties',fx:{type:{'Monster hunt':.06,'Bounty':.06}}},
+  scholar:{n:'Scholar',pos:1,d:'+6% odds on delves and arcane work',fx:{type:{'Dungeon delve':.06,'Arcane work':.06}}},
+  guide:{n:'Trailwise',pos:1,d:'+7% odds on escort quests',fx:{type:{'Escort':.07}}},
+  inspire:{n:'Inspiring',pos:1,d:'The whole party gains 10% less stress',fx:{pstress:.9}},
+  coward:{n:'Coward',d:'Gains 40% more stress',fx:{stress:1.4}},
+  greedy:{n:'Greedy',d:'Wage 40% higher',fx:{wage:1.4}},
+  clumsy:{n:'Clumsy',d:'-3% quest odds',fx:{odds:-.03}},
+  frail:{n:'Frail',d:'50% more likely to be injured',fx:{injury:1.5}},
+  hothead:{n:'Hot-headed',d:'Gains 20% more stress, -5% odds on escorts',fx:{stress:1.2,type:{'Escort':-.05}}},
+  dull:{n:'Slow Learner',d:'-30% XP',fx:{xp:.7}},
+  jinxed:{n:'Jinxed',d:'-5% odds on delves and arcane work',fx:{type:{'Dungeon delve':-.05,'Arcane work':-.05}}},
+  gloomy:{n:'Gloomy',d:'The whole party gains 10% more stress',fx:{pstress:1.1}}
+};
+const AFFL={
+  fearful:{n:'Fearful',d:'Stats -15% until stress falls to 20.'},
+  paranoid:{n:'Paranoid',d:'-3% quest odds until stress falls to 20.'},
+  selfish:{n:'Selfish',d:'Skims 10% of quest gold until stress falls to 20.'},
+  abusive:{n:'Abusive',d:'Adds stress to party mates after quests.'},
+  irrational:{n:'Irrational',d:'Causes setbacks on the road.'}
+};
+const VIRT={
+  stalwart:{n:'Stalwart',d:'Gains half the stress.'},
+  courageous:{n:'Courageous',d:'Stats +10%. Party gains 10% less stress.'},
+  focused:{n:'Focused',d:'+4% quest odds.'},
+  powerful:{n:'Powerful',d:'Stats +20%.'},
+  vigorous:{n:'Vigorous',d:'Heals injuries twice as fast.'}
+};
+const BLD=[
+  {id:'chapel',n:'Chapel',d:'Heroes can pray here to shed stress (-40/-50/-60, 50 gold, one day).',cost:[150,400,900]},
+  {id:'barracks',n:'Barracks',d:'+2 roster slots per level.',cost:[120,350,800]},
+  {id:'infirmary',n:'Infirmary',d:'Injuries heal 1 day faster per level (minimum 1 day).',cost:[150,400,900]},
+  {id:'training',n:'Training Hall',d:'+20% hero XP per level.',cost:[150,400,900]}
+];
+const PERKS=[
+  {id:'purse',n:'Old Savings',d:'+75 starting gold per level.',cost:[20,30,45,65]},
+  {id:'fame',n:'Famous Name',d:'Start with +25 renown per level.',cost:[40,70]},
+  {id:'haggle',n:'Silver Tongue',d:'Hiring costs 8% less per level.',cost:[25,40,60]},
+  {id:'hearth',n:'Hearth Keepers',d:'Stress relief works +5 better per level.',cost:[30,45,70]},
+  {id:'vet',n:'Veteran Recruit',d:'Start with an extra Uncommon hero.',cost:[40]},
+  {id:'chapel',n:'Inherited Chapel',d:'Start with a level 1 Chapel.',cost:[80]},
+  {id:'paladin',n:'Unlock: Paladin',d:'Paladins start appearing in taverns. They steady the party’s nerves.',cost:[60]},
+  {id:'bard',n:'Unlock: Bard',d:'Bards start appearing in taverns. They soothe the party’s stress.',cost:[60]}
+];
+const DECISIONS=[
+  {icon:'skull',title:'Ambush at the pass',text:'Raiders spring from the rocks above the road.',o:[
+    {l:'Fight back',p:.55,w:[.06,0,'The party breaks the ambush and presses on.'],f:[-.1,12,'The party is battered and shaken, but survives.']},
+    {l:'Slip past in the shadows',c:'rogue',p:.85,w:[.04,0,'The rogue leads everyone around the raiders.'],f:[-.05,6,'The raiders spot them and a scuffle costs time.']},
+    {l:'Rain arrows from cover',c:'ranger',p:.85,w:[.07,0,'Arrows scatter the raiders before they can charge.'],f:[-.05,5,'The shots go wide and the raiders close in.']},
+    {l:'Fall back and regroup',s:[-.04,3,'The party loses half a day but keeps its nerve.']}]},
+  {icon:'road',title:'Crossroads in the mist',text:'One path cuts through a marsh. The other is long but safe.',o:[
+    {l:'Take the marsh shortcut',p:.5,w:[.08,0,'The shortcut saves a full day.'],f:[-.08,8,'The marsh swallows supplies and morale.']},
+    {l:'Scry the marsh first',c:'mage',p:.85,w:[.08,-3,'A scrying spell reveals a dry line through the marsh.'],f:[-.02,2,'The vision is murky, so they take the long road.']},
+    {l:'Take the long safe road',s:[0,0,'The long road is dull but uneventful.']}]},
+  {icon:'scroll',title:'A humming shrine',text:'A weathered shrine glows with a faint light.',o:[
+    {l:'Pray at the shrine',c:'cleric',p:.85,w:[.08,-10,'The shrine answers. Spirits lift across the party.'],f:[-.03,5,'The shrine stays silent and the party feels foolish.']},
+    {l:'Loot the offerings',p:.45,w:[.04,0,'Hidden coins glint in the dust.',12],f:[-.08,10,'A curse settles over the party.']},
+    {l:'Leave it alone',s:[0,0,'The party moves on, untouched.']}]},
+  {icon:'heal',title:'A wounded stranger',text:'A traveler by the road begs for help.',o:[
+    {l:'Tend the wounds',c:'cleric',p:.9,w:[.05,-6,'The grateful traveler shares a map and a purse.',8],f:[-.02,3,'The traveler was beyond saving.']},
+    {l:'Help as best you can',p:.55,w:[.04,-3,'The traveler recovers and points out a safer path.'],f:[-.05,6,'It was a ruse. The traveler’s friends rob the party.']},
+    {l:'Walk on',s:[0,5,'The party moves on. The guilt lingers.']}]},
+  {icon:'camp',title:'A long night',text:'The party is exhausted and the light is fading.',o:[
+    {l:'Make camp and rest',s:[-.03,-8,'A full night of sleep steadies everyone.']},
+    {l:'Push on through the dark',p:.5,w:[.05,0,'The party gains ground by moonlight.'],f:[-.07,9,'Tired and stumbling, the party loses its way.']},
+    {l:'Sing by the fire',c:'bard',p:.9,w:[.03,-14,'A song lifts every heart around the fire.'],f:[-.01,-4,'The song falls flat, but the rest helps.']},
+    {l:'Hold a prayer vigil',c:'paladin',p:.9,w:[.03,-10,'Quiet prayer restores everyone’s resolve.'],f:[-.01,-3,'The vigil runs long, but nobody is hurt.']}]},
+  {icon:'trap',title:'The floor gives way',text:'Old stone cracks under the party’s boots.',o:[
+    {l:'Leap for solid ground',p:.5,w:[.05,0,'The party scrambles clear.'],f:[-.09,10,'Some of the party tumble into the dark.']},
+    {l:'Disarm the mechanism',c:'rogue',p:.88,w:[.07,0,'The rogue stills the trap with a deft hand.'],f:[-.06,6,'The mechanism jams and the floor lurches.']},
+    {l:'Brace the beams',c:'warrior',p:.85,w:[.06,0,'The warrior holds the ceiling while everyone crosses.'],f:[-.06,7,'The beams crack and everyone scrambles.']}]}
+];
+const BAD_EVENTS=[
+  {icon:'trap',t:'A hidden trap catches the party off guard.'},
+  {icon:'skull',t:'Something howls in the dark. Nobody sleeps.'},
+  {icon:'camp',t:'Rain soaks the camp and tempers fray.'}
+];
+/* backstory: each hero unlocks chapters by finishing quests; the player picks how each one reads */
+const CRAFT={warrior:'blade',mage:'spellbook',rogue:'lockpicks',cleric:'holy symbol',ranger:'bow',paladin:'oath',bard:'lute'};
+const REP=[
+  {min:75,n:'Legendary',cls:'r-top'},{min:45,n:'Renowned',cls:'r-high'},{min:15,n:'Respected',cls:'r-high'},
+  {min:-14,n:'Unknown',cls:'r-mid'},{min:-39,n:'Doubted',cls:'r-low'},{min:-101,n:'Disgraced',cls:'r-bad'}
+];
+const CHAPTERS=[
+  {n:'Origins',at:1,intro:'{n} sits by the fire after the first quest and talks about where they came from.',o:[
+    {l:'A quiet farm',s:'{n} grew up on a small farm, rising before dawn and learning that honest work feeds everyone. Taking up the {craft} was the first thing they ever did for themselves.',t:'Humble Roots',d:'Wage 15% lower.',fx:{wage:.85},m:1,r:4},
+    {l:'The city streets',s:'{n} was raised in the alleys of a crowded port town, trading favors and learning who to trust. The {craft} came later, as a way to stop trading.',t:'Streetwise',d:'+5% odds on bounties and delves.',fx:{type:{'Bounty':.05,'Dungeon delve':.05}},m:0,r:0},
+    {l:'Running from something',s:'Nobody asked where {n} came from, and they like it that way. They left a village behind in a hurry, and some doors there are still shut.',t:'Haunted Past',d:'+3% odds, gains 15% more stress.',fx:{odds:.03,stress:1.15},m:-1,r:-4},
+    {k:'hi',l:'A noble house',s:'{n} was born to a minor noble house and walked away from the inheritance. The name still opens doors, and the guild’s patrons notice.',t:'Name of Note',d:'+10% renown from quests.',fx:{renown:1.1},m:1,r:8},
+    {k:'lo',l:'A known outlaw',s:'Before the guild, {n} ran with a crew that robbed caravans. The wanted posters have faded, but not everyone forgets.',t:'Wanted Poster',d:'+10% gold from quests, party gains 5% more stress.',fx:{gold:1.1,pstress:1.05},m:-1,r:-8}]},
+  {n:'Motive',at:3,intro:'On a long road, {n} finally says why they keep taking quests.',o:[
+    {l:'To protect others',s:'{n} fights because someone has to stand between the weak and the dark. Every rescued traveler feels like a debt repaid.',t:'Guardian’s Heart',d:'20% less likely to be injured, party gains 5% less stress.',fx:{injury:.8,pstress:.95},m:1,r:4},
+    {l:'For coin and a warm bed',s:'{n} is honest about it: the work pays and the guild keeps a bed warm. There is no shame in a steady wage.',t:'Steady Hands',d:'Gains 15% less stress.',fx:{stress:.85},m:0,r:0},
+    {l:'For glory',s:'{n} wants songs written about them, and will take the risk that gets one. Quiet victories feel like wasted days.',t:'Glory Hound',d:'+3% odds, party gains 10% more stress.',fx:{odds:.03,pstress:1.1},m:-1,r:-4},
+    {k:'hi',l:'To end the darkness',s:'After all they have seen, {n} no longer fights for coin. They want the darkness gone for good, and the rest of the guild believes it.',t:'Beacon',d:'+4% odds, party gains 8% less stress.',fx:{odds:.04,pstress:.92},m:1,r:8},
+    {k:'lo',l:'To settle scores',s:'{n} keeps a list of names and a long memory. The guild is a tool for settling it, and the list is shorter than it used to be.',t:'Grudge-bearer',d:'+7% odds on hunts and bounties, gains 20% more stress.',fx:{type:{'Monster hunt':.07,'Bounty':.07},stress:1.2},m:-1,r:-8}]},
+  {n:'Regret',at:6,intro:'One night, {n} goes quiet. The others notice, and eventually the story comes out.',o:[
+    {l:'A promise unkept',s:'{n} once promised to come back for someone and could not. They carry the weight openly now, and it keeps them honest.',t:'Oathkeeper',d:'+2% odds, gains 10% less stress.',fx:{odds:.02,stress:.9},m:1,r:4},
+    {l:'A mentor lost',s:'A teacher showed {n} the {craft} and died before the lessons were finished. {n} fills the gaps with practice.',t:'Self-taught',d:'+20% XP.',fx:{xp:1.2},m:0,r:0},
+    {l:'A betrayal',s:'{n} once sold out a friend to save themselves. They have never said it aloud, and they have trusted no one fully since.',t:'Cold Heart',d:'+4% odds, party gains 10% more stress.',fx:{odds:.04,pstress:1.1},m:-1,r:-4},
+    {k:'hi',l:'A debt repaid',s:'Years ago a stranger risked everything for {n}. They have spent every quest since paying it forward, and the guild has noticed.',t:'Paid Forward',d:'Party gains 10% less stress, 15% less likely to be injured.',fx:{pstress:.9,injury:.85},m:1,r:8},
+    {k:'lo',l:'A village left to burn',s:'{n} was there when a village burned and did nothing. The silence follows them into every camp.',t:'Silent Guilt',d:'+4% odds, gains 25% more stress.',fx:{odds:.04,stress:1.25},m:-1,r:-8}]},
+  {n:'Bonds',at:10,intro:'{n} pulls a worn keepsake from a pocket, and the others ask about it.',o:[
+    {l:'A sibling at home',s:'{n} sends coin home to a younger sibling who still thinks the {craft} is just a hobby. The letters keep them steady.',t:'Letters Home',d:'Gains 20% less stress.',fx:{stress:.8},m:1,r:4},
+    {l:'The party is family',s:'{n} stopped talking about home long ago. The people who share the road are the family they chose.',t:'Found Family',d:'Party gains 5% less stress.',fx:{pstress:.95},m:0,r:0},
+    {l:'A rival to beat',s:'{n} has a rival in another guild, and every victory is also a message. They would happily lose a coin to win that fight.',t:'Bitter Rival',d:'+3% odds, gains 10% more stress.',fx:{odds:.03,stress:1.1},m:-1,r:-4},
+    {k:'hi',l:'A flame that endures',s:'Someone waits for {n} in a quiet town, and the guild knows the name. {n} has never been more careful, or more brave.',t:'Waiting Flame',d:'25% less likely to be injured, +2% odds.',fx:{injury:.75,odds:.02},m:1,r:8},
+    {k:'lo',l:'Nobody at all',s:'{n} has cut every tie. There is no one to disappoint and no one to mourn, and the guild suspects that is the point.',t:'Lone Wolf',d:'+5% odds, party gains 10% more stress.',fx:{odds:.05,pstress:1.1},m:-1,r:-8}]},
+  {n:'Creed',at:15,intro:'After so many quests, {n} finally puts words to the code they live by.',o:[
+    {l:'Mercy first',s:'{n} always offers surrender before steel. It has cost the party time, and saved a few lives that later returned the favor.',t:'Code of Mercy',d:'Party gains 7% less stress.',fx:{pstress:.93},m:1,r:5},
+    {l:'The job comes first',s:'{n} lives by a simple creed: finish the task, protect the party, and sleep afterward.',t:'Professional',d:'+3% odds, +10% XP.',fx:{odds:.03,xp:1.1},m:0,r:0},
+    {l:'The ends justify the means',s:'{n} believes no one remembers how a quest was won, only that it was. That belief has paid off, and cost a few quiet nights.',t:'Ruthless',d:'+5% odds, +8% gold, party gains 10% more stress.',fx:{odds:.05,gold:1.08,pstress:1.1},m:-1,r:-5},
+    {k:'hi',l:'A shield for the guild',s:'{n} has sworn that no one in this guild will fall while they stand. The oath is public, and the guild’s banner hangs a little prouder.',t:'Banner-Bearer',d:'+3% odds, +8% renown, party gains 10% less stress.',fx:{odds:.03,renown:1.08,pstress:.9},m:1,r:8},
+    {k:'lo',l:'Fear is a weapon',s:'{n} has learned that a reputation can win fights before they begin. Enemies know the name. So do allies, and they are not entirely comfortable.',t:'Dread Reputation',d:'+5% odds, +5% renown, party gains 12% more stress.',fx:{odds:.05,renown:1.05,pstress:1.12},m:-1,r:-8}]}
+];
+const repTier=r=>REP.find(x=>r>=x.min);
+const moral=h=>(h.story||[]).reduce((a,s)=>a+CHAPTERS[s.c].o[s.o].m,0);
+function alignTitle(h){
+  if(!(h.story||[]).length)return 'Unwritten';
+  const m=moral(h);
+  return m>=4?'Paragon':m>=2?'Honorable':m>-2?'Pragmatic':m>-4?'Ruthless':'Villain';
+}
+const fillStory=(s,h)=>s.replace(/\{n\}/g,h.name.split(' ')[0]).replace(/\{craft\}/g,CRAFT[h.cls]);
+const storyTrait=s=>{const o=CHAPTERS[s.c].o[s.o];return {n:o.t,pos:o.m>=0,story:1,d:o.d,fx:o.fx}};
+const KEY='guildmaster-save-v2',MKEY='guildmaster-legacy-v1';
+
+/* ---------- helpers ---------- */
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ri=(a,b)=>Math.floor(rnd(a,b+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S=null,M=null;
+let ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[]};
+const uid=()=>S.nid++;
+const perk=id=>(M.perks[id]||0);
+
+/* ---------- temporary pixel art ---------- */
+function pix(rows,pal,size,w,h){
+  let r='';
+  rows.forEach((row,y)=>{for(let x=0;x<row.length;x++){const c=pal[row[x]];if(c)r+=`<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`}});
+  return `<svg class="pix" viewBox="0 0 ${w} ${h}" width="${size}" height="${Math.round(size*h/w)}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;
+}
+const CPAL={warrior:{b:'#b0463a',h:'#9aa5ad'},mage:{b:'#5b6fd1',h:'#3a3f8a'},rogue:{b:'#6a4a8a',h:'#2b2336'},cleric:{b:'#d8d2bf',h:'#d4aa4f'},ranger:{b:'#4c8a5b',h:'#6b4a2b'},paladin:{b:'#8aa0d8',h:'#d4aa4f'},bard:{b:'#c9577a',h:'#7a3b5a'}};
+const TCOL=['#a3adb5','#72c177','#5ea6ec','#b97cef','#f3a93c'];
+const BASE=['....hhh....','...hhhhh...','...sssss...','...seses...','....sss....','..bbbbbbb..','.sbbbbbbbs.','.sbbbbbbbs.','..ddddddd..','..bbbbbbb..','...ll.ll...','...ll.ll...'];
+const line=(x,y0,y1,k)=>{const a=[];for(let y=y0;y<=y1;y++)a.push([x,y,k]);return a};
+const WEAPON={
+  warrior:[...line(10,1,5,'w'),[10,6,'t'],...line(0,6,8,'k')],
+  mage:[...line(10,2,11,'t'),[10,1,'o']],
+  rogue:line(10,6,8,'w'),
+  cleric:[[5,6,'x'],[4,7,'x'],[5,7,'x'],[6,7,'x'],...line(0,3,11,'t'),[0,2,'x']],
+  ranger:line(10,2,9,'t'),
+  paladin:[...line(10,2,6,'w'),[10,7,'t'],...line(0,6,9,'x'),[5,6,'x'],[4,7,'x'],[5,7,'x'],[6,7,'x']],
+  bard:[...line(10,4,6,'t'),[10,7,'x'],[10,8,'x'],[9,8,'x'],[9,7,'x']]
+};
+const spriteCache={};
+function sprite(cls,tier,size){
+  const key=cls+tier+size;
+  if(spriteCache[key])return spriteCache[key];
+  const g=BASE.map(r=>r.split(''));
+  WEAPON[cls].forEach(([x,y,k])=>{g[y][x]=k});
+  const c=CPAL[cls];
+  const pal={h:c.h,b:c.b,s:'#e8c39e',e:'#16181d',d:TCOL[tier],l:'#3a3a48',w:'#cfd6dc',t:'#8a6a3a',o:'#7ad7ff',x:'#d4aa4f',k:'#6b4a2b'};
+  return spriteCache[key]=pix(g.map(r=>r.join('')),pal,size,11,12);
+}
+const ICONS={
+  fight:{p:{w:'#cfd6dc',b:'#8a6a3a'},r:['w......w','.w....w.','..w..w..','...ww...','...ww...','..w..w..','.bw..wb.','bb....bb']},
+  skull:{p:{w:'#e7e1d1',k:'#14171c'},r:['.wwwwww.','wwwwwwww','wkkwwkkw','wkkwwkkw','wwwkkwww','.wwwwww.','..wkwkw.','..wwwww.']},
+  chest:{p:{b:'#8a6a3a',g:'#e0b83e',d:'#5a4426'},r:['........','.dddddd.','bbbbbbbb','bbbggbbb','gggggggg','bbbggbbb','bbbbbbbb','dddddddd']},
+  camp:{p:{r:'#e2603a',o:'#f3c13c',b:'#8a6a3a'},r:['...r....','..rr.r..','.rrrrrr.','.rroorr.','..rooor.','...oo...','bbbbbbbb','.b....b.']},
+  trap:{p:{w:'#cfd6dc',b:'#6a5a48'},r:['........','........','w..w..w.','w..w..w.','ww.ww.ww','ww.ww.ww','bbbbbbbb','bbbbbbbb']},
+  scroll:{p:{y:'#e7d9a8',k:'#6b5a2e'},r:['..yyyyyy','.yyyyyyy','.ykkkkky','.yyyyyyy','.ykkkkyy','.yyyyyyy','.ykkkyyy','yyyyyy..']},
+  heal:{p:{g:'#7fb069'},r:['...gg...','...gg...','...gg...','gggggggg','gggggggg','...gg...','...gg...','...gg...']},
+  boss:{p:{r:'#c9473a',y:'#f3c13c',w:'#e7e1d1'},r:['r......r','rr....rr','.rrrrrr.','rryrryrr','rrrrrrrr','.rwwwwr.','.rwrrwr.','..rrrr..']},
+  flag:{p:{b:'#8a6a3a',f:'#d4aa4f'},r:['bffffff.','bfffffff','bffffff.','b.......','b.......','b.......','b.......','bbb.....']},
+  road:{p:{w:'#a3adb5'},r:['........','..ww....','..ww..ww','......ww','..ww....','..ww..ww','......ww','........']},
+  arrow:{p:{w:'#cfd6dc',b:'#8a6a3a'},r:['......ww','.....www','....ww.w','...ww...','..ww....','.bb.....','bb......','b.......']}
+};
+const icon=(n,size)=>pix(ICONS[n].r,ICONS[n].p,size,8,8);
+
+/* ---------- model ---------- */
+const era=()=>ERAS.find(e=>e.id===S.eraId)||ERAS[0];
+const efx=(k,d)=>era().fx[k]||d;
+const rank=()=>{let r=0;RT.forEach((t,i)=>{if(S.renown>=t)r=i});return r};
+const bl=id=>S.bld[id]||0;
+const rosterCap=()=>6+2*rank()+2*bl('barracks');
+const partyCount=()=>2+Math.floor(rank()/2);
+const hero=id=>S.heroes.find(h=>h.id===id);
+const party=id=>S.parties.find(p=>p.id===id);
+const members=p=>p.members.map(hero).filter(Boolean);
+const Q=h=>[...(h.quirks||[]).map(id=>QUIRKS[id]).filter(Boolean),...(h.story||[]).map(storyTrait)];
+const fxm=(h,k)=>Q(h).reduce((a,q)=>a*(q.fx[k]||1),1);
+function statMult(h){
+  let m=1;
+  if(h.affl==='fearful')m*=.85;
+  if(h.virtue==='powerful')m*=1.2;
+  if(h.virtue==='courageous')m*=1.1;
+  return m;
+}
+const stat=(h,s)=>Math.round(h.base[s]*(1+.1*(h.level-1))*statMult(h));
+function status(h){
+  if(h.injured>0)return 'injured';
+  if(h.rest>0)return 'resting';
+  const p=h.party&&party(h.party);
+  return p&&p.mission?'questing':'ready';
+}
+const unavailable=h=>h.injured>0||h.rest>0;
+const availableClasses=()=>Object.keys(CLASSES).filter(c=>!CLASSES[c].lock||perk(c));
+function pickQuirks(tier){
+  const pos=Object.keys(QUIRKS).filter(k=>QUIRKS[k].pos),neg=Object.keys(QUIRKS).filter(k=>!QUIRKS[k].pos);
+  const out=[],take=(pool,n)=>{const p=[...pool].sort(()=>Math.random()-.5);for(let i=0;i<n;i++)out.push(p[i])};
+  take(pos,tier>=3?2:1);
+  take(neg,tier===4?(Math.random()<.5?1:0):1);
+  return out;
+}
+function makeHero(tier,cls){
+  cls=cls||pick(availableClasses());
+  const base={};
+  STATS.forEach(s=>base[s]=Math.max(1,Math.round(CLASSES[cls].base[s]*TIERS[tier].mult*rnd(.85,1.15))));
+  const name=pick(FIRST)+(tier>=2?' '+pick(EPI):'');
+  const quirks=pickQuirks(tier);
+  let wage=TIERS[tier].wage*rnd(.9,1.15);
+  quirks.forEach(id=>{wage*=QUIRKS[id].fx.wage||1});
+  return {id:uid(),name,cls,tier,level:1,xp:0,base,injured:0,rest:0,party:null,wins:0,quests:0,rep:0,story:[],pend:false,stress:0,quirks,affl:null,virtue:null,wage:Math.max(1,Math.round(wage))};
+}
+function pickTier(){
+  const cap=TIER_CAP[rank()],w=[50,30,15,8,3].slice(0,cap+1);
+  let r=Math.random()*w.reduce((a,b)=>a+b,0);
+  for(let i=0;i<w.length;i++){r-=w[i];if(r<=0)return i}
+  return 0;
+}
+function makeCandidate(){
+  const h=makeHero(pickTier());
+  h.cost=Math.round(TIERS[h.tier].hire*rnd(.85,1.2)*(1-.08*perk('haggle')));
+  return h;
+}
+function refreshTavern(n){
+  for(let i=0;i<n&&S.tavern.length;i++)S.tavern.splice(Math.floor(Math.random()*S.tavern.length),1);
+  while(S.tavern.length<5)S.tavern.push(makeCandidate());
+}
+function ensureParties(){
+  while(S.parties.length<partyCount())S.parties.push({id:uid(),name:PARTY_NAMES[S.parties.length%PARTY_NAMES.length],members:[],mission:null});
+}
+function makeQuest(){
+  const r=rank(),d=ri(Math.min(8,1+r),Math.min(10,3+r));
+  const type=pick(QTYPES),band=Math.min(4,Math.floor((d-1)/2));
+  const m=pick(MON[band]),pl=pick(PLACE[band]);
+  const diff=12*Math.pow(1.45,d-1)*rnd(.92,1.1)*efx('diff',1);
+  return {id:uid(),d,type:type.k,title:type.f(m,pl),place:pl,monster:m,w:type.w,diff,
+    gold:Math.round(12*Math.pow(1.45,d-1)*7*rnd(.92,1.12)*efx('gold',1)),renown:Math.round((3+d*d*.9+d*3)*efx('renown',1)),xp:10+d*8,days:ri(2,4),expires:ri(3,6)};
+}
+function makeBossQuest(){
+  const B=BOSSES[S.boss];
+  return {id:uid(),d:10,boss:true,type:'Final quest',title:`Slay ${B.n}`,place:B.place,monster:B.n,w:B.w,diff:230*efx('diff',1),gold:4000,renown:300,xp:150,days:5,expires:999};
+}
+const CRISES=[
+  {k:'Crisis: Siege',w:{might:.6,agility:.2,wits:.2},f:p=>`Break the siege of ${p}`,s:'A warband is about to break the gates.'},
+  {k:'Crisis: Plague',w:{magic:.5,wits:.4,agility:.1},f:p=>`Stop the plague at ${p}`,s:'A sickness is spreading and the town will fall.'},
+  {k:'Crisis: Ritual',w:{magic:.5,might:.2,wits:.3},f:p=>`Halt the ritual at ${p}`,s:'A cult is close to finishing something terrible.'},
+  {k:'Crisis: Warlord',w:{agility:.4,might:.4,wits:.2},f:p=>`Stop the warlord of ${p}`,s:'A warlord has demanded that the guild kneel.'}
+];
+const TOWNS=['Hollowmere','Ashford','Greywater','Dunmoor','Kettlebrook','Stonewick'];
+const CRISIS_DAYS=25;
+function makeCrisis(){
+  const d=Math.min(9,2+rank()),c=pick(CRISES),place=pick(TOWNS);
+  const diff=12*Math.pow(1.45,d-1)*.9*efx('diff',1);
+  return {id:uid(),d,crisis:true,type:c.k,title:c.f(place),place,monster:'the threat',w:c.w,diff,stake:c.s,
+    gold:Math.round(12*Math.pow(1.45,d-1)*7*2.5),renown:Math.round((3+d*d*.9+d*3)*2.5),xp:30+d*10,days:3,expires:CRISIS_DAYS};
+}
+const boardOrder=q=>q.crisis?2:q.boss?1:0;
+function fillBoard(){
+  const target=5+Math.floor(rank()/2);
+  while(S.board.filter(q=>!q.boss&&!q.crisis).length<target)S.board.push(makeQuest());
+  S.board.sort((a,b)=>boardOrder(b)-boardOrder(a)||a.d-b.d);
+}
+function heroOdds(h,q){
+  let o=0;
+  Q(h).forEach(x=>{o+=x.fx.odds||0;o+=(x.fx.type&&x.fx.type[q.type])||0});
+  if(h.virtue==='focused')o+=.04;
+  if(h.affl==='paranoid')o-=.03;
+  o+=(h.rep||0)*.0004;
+  return o;
+}
+const power=(ms,w)=>STATS.reduce((s,k)=>s+(w[k]||0)*ms.reduce((a,h)=>a+stat(h,k),0),0);
+function chance(ms,q){
+  if(!ms.length)return 0;
+  const c=.5+(power(ms,q.w)/q.diff-1)*.55+(new Set(ms.map(h=>h.cls)).size-1)*.04+ms.reduce((a,h)=>a+heroOdds(h,q),0);
+  return clamp(c,.03,.97);
+}
+function stressMult(h,ms){
+  let m=fxm(h,'stress');
+  ms.forEach(x=>{
+    m*=fxm(x,'pstress');
+    if(x.cls==='bard')m*=.8;
+    if(x.cls==='paladin')m*=.85;
+    if(x.virtue==='courageous')m*=.9;
+    if((x.rep||0)>=45)m*=.95;
+    if((x.rep||0)<=-40)m*=1.05;
+  });
+  if(h.virtue==='stalwart')m*=.5;
+  return m*efx('stress',1);
+}
+function breakdown(h,ev){
+  if(Math.random()<.25){
+    const v=pick(Object.keys(VIRT));
+    h.virtue=v;h.affl=null;h.stress=40;shiftRep(h,4,ev);
+    ev.push({k:'win',t:`${h.name} rises to the moment and becomes ${VIRT[v].n}! ${VIRT[v].d}`});
+  }else{
+    const a=pick(Object.keys(AFFL));
+    h.affl=a;h.virtue=null;h.stress=60;shiftRep(h,-3,ev);
+    ev.push({k:'death',t:`${h.name} breaks under the strain and becomes ${AFFL[a].n}. ${AFFL[a].d}`});
+  }
+}
+function addStress(h,amt,ms,ev){
+  if(amt>0)amt=Math.round(amt*stressMult(h,ms));
+  h.stress=clamp(h.stress+amt,0,100);
+  if(h.stress>=100)breakdown(h,ev);
+  else if(h.affl&&h.stress<=20){
+    ev.push({k:'win',t:`${h.name} has recovered from being ${AFFL[h.affl].n}.`});
+    h.affl=null;
+  }
+}
+function newGame(){
+  S={v:2,day:1,gold:200+75*perk('purse'),renown:25*perk('fame'),rankSeen:0,heroes:[],parties:[],board:[],tavern:[],offers:[],pending:[],storyQ:[],log:[],fallen:[],
+    stats:{won:0,lost:0,fallen:0},hardcore:true,over:false,nextCrisis:ri(12,18),vic:0,paid:false,nid:1,
+    eraId:pick(ERAS).id,boss:ri(0,BOSSES.length-1),bossSpawned:false,bld:{chapel:perk('chapel'),barracks:0,infirmary:0,training:0}};
+  S.rankSeen=rank();
+  const cls=[...availableClasses()].sort(()=>Math.random()-.5).slice(0,3);
+  cls.forEach(c=>S.heroes.push(makeHero(0,c)));
+  if(perk('vet'))S.heroes.push(makeHero(1));
+  ensureParties();
+  S.heroes.slice(0,4).forEach(h=>{h.party=S.parties[0].id;S.parties[0].members.push(h.id)});
+  fillBoard();refreshTavern(5);
+  S.log.unshift({d:1,t:`You open the doors of a ragged little tavern and call it a guild. Era: ${era().n}.`});
+}
+function gainRenown(n,ev){
+  S.renown=Math.max(RT[rank()],S.renown+n);
+  while(S.rankSeen<rank()){
+    S.rankSeen++;
+    const r=S.rankSeen;ensureParties();
+    ev.push({k:'rank',t:`Your guild reached Rank ${RANKS[r].l}: ${RANKS[r].n}! Harder quests and stronger heroes are now in play.`});
+    S.offers.push({hero:makeHero(TIER_CAP[r]),why:'has heard your guild is on the rise and wants in, no fee.'});
+  }
+}
+function addXp(h,x,ev){
+  h.xp+=Math.round(x*(1+.2*bl('training'))*fxm(h,'xp'));
+  while(h.xp>=40*h.level&&h.level<12){h.xp-=40*h.level;h.level++;ev.push({k:'lvl',t:`${h.name} reached level ${h.level}.`})}
+}
+function shiftRep(h,d,ev){
+  const before=repTier(h.rep||0).n;
+  h.rep=clamp((h.rep||0)+d,-100,100);
+  const after=repTier(h.rep).n;
+  if(after!==before)ev.push({k:d>0?'win':'loss',t:`${h.name} is now seen as ${after} (${h.rep>0?'+':''}${h.rep} reputation).`});
+}
+function checkStory(h,ev){
+  const i=(h.story||[]).length;
+  if(i<CHAPTERS.length&&!h.pend&&(h.quests||0)>=CHAPTERS[i].at){
+    h.pend=true;S.storyQ.push(h.id);
+    if(ev)ev.push({k:'rank',t:`${h.name} has a new chapter of their story to tell.`});
+  }
+}
+function hallEntry(h){
+  return {name:h.name,cls:h.cls,tier:h.tier,rep:h.rep||0,title:alignTitle(h),traits:(h.story||[]).map(s=>CHAPTERS[s.c].o[s.o].t)};
+}
+function kill(h,q){
+  S.heroes=S.heroes.filter(x=>x!==h);
+  S.parties.forEach(p=>p.members=p.members.filter(id=>id!==h.id));
+  S.fallen.push({name:h.name,cls:h.cls,tier:h.tier,level:h.level,day:S.day,quest:q.title,title:(h.story||[]).length?alignTitle(h):'',rep:repTier(h.rep||0).n});
+  S.stats.fallen++;
+  if((h.story||[]).length>=2){M.hall.unshift(Object.assign(hallEntry(h),{fell:true}));M.hall=M.hall.slice(0,12);saveMeta()}
+}
+function goodEvent(ms){
+  const fn=h=>h.name.split(' ')[0],by=c=>{const h=ms.find(x=>x.cls===c);return h&&fn(h)};
+  const pool=[
+    {icon:'fight',t:`${fn(pick(ms))} leads a skirmish against a patrol and wins.`},
+    {icon:'road',t:'The road is clear and spirits are high.'},
+    by('rogue')&&{icon:'trap',t:`${by('rogue')} spots a trap and disarms it.`},
+    by('mage')&&{icon:'scroll',t:`${by('mage')} reads old runes that reveal a shortcut.`},
+    by('ranger')&&{icon:'arrow',t:`${by('ranger')} picks off a lookout from afar.`},
+    by('cleric')&&{icon:'heal',t:`${by('cleric')} tends to sore feet and bruised egos.`},
+    by('bard')&&{icon:'camp',t:`${by('bard')} plays a tune that eases every mind.`},
+    by('paladin')&&{icon:'flag',t:`${by('paladin')} rallies the party with a blessing.`}
+  ].filter(Boolean);
+  return pick(pool);
+}
+function tickMission(p,ev){
+  const m=p.mission,e=m.total-m.daysLeft,ms=members(p),ch=chance(ms,m.quest);
+  if(Math.random()<.45){
+    const avail=DECISIONS.map((d,i)=>i).filter(i=>!m.used.includes(i));
+    if(avail.length){
+      const i=pick(avail);m.used.push(i);
+      m.ev.push({day:e,icon:DECISIONS[i].icon,tone:'neutral',t:DECISIONS[i].title,pending:true,did:i});
+      S.pending.push({pid:p.id,day:e});
+      ev.push({k:'info',m:true,t:`${p.name} faces a decision: ${DECISIONS[i].title}.`});
+      return;
+    }
+  }
+  const irr=ms.filter(h=>h.affl==='irrational').length*.15;
+  if(Math.random()<ch-irr){
+    const g=goodEvent(ms);
+    m.mom+=.05;ms.forEach(h=>addStress(h,-2,ms,ev));
+    m.ev.push({day:e,icon:g.icon,tone:'good',t:g.t});
+    ev.push({k:'win',m:true,t:`${p.name}: ${g.t}`});
+  }else{
+    const b=pick(BAD_EVENTS);
+    m.mom-=.07;ms.forEach(h=>addStress(h,ri(4,9),ms,ev));
+    m.ev.push({day:e,icon:b.icon,tone:'bad',t:b.t});
+    ev.push({k:'loss',m:true,t:`${p.name}: ${b.t}`});
+  }
+}
+const deathChance=(q,cleric,disaster)=>(.12+.02*q.d)*(cleric?.5:1)*(q.boss?1.5:1)*(disaster?1.5:1);
+function resolve(p,ev){
+  const m=p.mission,q=m.quest,ms=members(p);
+  const ch=clamp(chance(ms,q)+m.mom,.03,.97),roll=Math.random();
+  const ok=roll<ch,great=ok&&roll<ch*.4,pct=Math.round(ch*100);
+  p.mission=null;
+  const cleric=ms.some(h=>h.cls==='cleric');
+  if(ok){
+    let g=Math.round(q.gold*(great?1.25:1)*ms.reduce((a,h)=>a*fxm(h,'gold'),1));
+    const rn=Math.round(q.renown*ms.reduce((a,h)=>a*fxm(h,'renown'),1));
+    const selfish=ms.filter(h=>h.affl==='selfish').length;
+    if(selfish){g=Math.round(g*(1-.1*selfish));ev.push({k:'loss',t:`A selfish party member pocketed some of the loot.`})}
+    S.gold+=g;S.stats.won++;
+    ms.forEach(h=>{h.wins++;h.quests=(h.quests||0)+1;shiftRep(h,Math.round(1+q.d*.5)+(great?2:0)+(q.boss?10:0),ev);addXp(h,q.xp,ev)});
+    ev.push({k:'win',t:`${p.name} ${great?'crushed':'completed'} "${q.title}" (${pct}% final odds). +${g} gold, +${rn} renown.`});
+    gainRenown(rn,ev);
+    ms.forEach(h=>addStress(h,ri(0,4),ms,ev));
+    if(q.crisis){
+      ev.push({k:'rank',t:`The crisis is over. ${q.place} is saved, and a grateful survivor wants to join your guild.`});
+      S.offers.push({hero:makeHero(Math.min(4,TIER_CAP[rank()]+(Math.random()<.5?1:0))),why:'was among those you saved and swears to repay the debt.'});
+    }
+    if(q.boss){
+      S.vic=S.vic||1;
+      ev.push({k:'rank',t:`${q.monster} has fallen! Your guild's name will be sung for generations.`});
+    }else{
+      const rk=rank();
+      if(q.d>=Math.max(2,rk)&&Math.random()<.12+(great?.12:0)+q.d*.01){
+        const t=Math.min(4,TIER_CAP[rk]+(q.d>=rk+3&&Math.random()<.4?1:0));
+        S.offers.push({hero:makeHero(t),why:`heard how you handled "${q.title}" and asks to join, no fee.`});
+      }
+    }
+  }else{
+    S.stats.lost++;
+    const loss=Math.round(q.renown*.4),mit=cleric?.5:1,heavy=q.boss?1.5:1;
+    ev.push({k:'loss',t:`${p.name} failed "${q.title}" (${pct}% final odds). -${loss} renown.${cleric?' Their cleric limited the damage.':''}`});
+    gainRenown(-loss,ev);
+    if(q.boss)S.board.push(q);
+    if(q.crisis){
+      S.over=true;S.overReason=`"${q.title}" was not stopped. ${q.stake} The realm turned on your guild.`;
+      ev.push({k:'death',t:`The crisis was not stopped. The realm turns on your guild.`});
+    }
+    ms.forEach(h=>{
+      h.quests=(h.quests||0)+1;shiftRep(h,-Math.round(2+q.d*.4),ev);
+      addXp(h,Math.round(q.xp/2),ev);
+      addStress(h,ri(14,26)*(q.boss?1.4:1),ms,ev);
+      const vig=h.virtue==='vigorous'?.5:1;
+      if(S.hardcore&&Math.random()<deathChance(q,cleric,roll>ch+.3)){
+        kill(h,q);ev.push({k:'death',t:`${h.name} (${TIERS[h.tier].n} ${CLASSES[h.cls].n}, level ${h.level}) died on the quest. They are remembered.`});
+      }else if(Math.random()<(.4+.02*q.d)*mit*fxm(h,'injury')*vig){
+        h.injured=Math.max(1,ri(2,2+Math.ceil(q.d/2))-bl('infirmary')+efx('heal',0));
+        ev.push({k:'loss',t:`${h.name} is injured for ${h.injured} days.`});
+      }
+    });
+  }
+  const left=members(p);
+  left.filter(h=>h.affl==='abusive').forEach(a=>{
+    left.filter(x=>x!==a).forEach(x=>addStress(x,6,left,ev));
+    ev.push({k:'loss',t:`${a.name} lashes out at the others.`});
+    shiftRep(a,-2,ev);
+  });
+  const hon=left.filter(h=>moral(h)>=2),dark=left.filter(h=>moral(h)<=-2);
+  if(hon.length&&dark.length){
+    [...hon,...dark].forEach(h=>addStress(h,4,left,ev));
+    ev.push({k:'loss',t:`${hon[0].name} and ${dark[0].name} clashed over how the quest was handled.`});
+  }
+  p.members=p.members.filter(id=>hero(id));
+  members(p).forEach(h=>checkStory(h,ev));
+}
+function decide(oi){
+  const pd=S.pending.shift(),p=party(pd.pid),m=p.mission;
+  const me=m.ev.find(x=>x.day===pd.day&&x.pending),D=DECISIONS[me.did],o=D.o[oi];
+  const ms=members(p),ch=chance(ms,m.quest),ev=[];
+  let r,tone;
+  if(o.s){r=o.s;tone='neutral'}
+  else if(Math.random()<clamp(o.p+(ch-.5)*.3,.1,.95)){r=o.w;tone='good'}
+  else{r=o.f;tone='bad'}
+  m.mom+=r[0];
+  if(r[1])ms.forEach(h=>addStress(h,r[1],ms,ev));
+  let t=r[2];
+  if(r[3]){const g=Math.round(r[3]*m.quest.d);S.gold+=g;t+=` +${g} gold.`}
+  me.pending=false;me.tone=tone;me.t=t;
+  S.log.unshift({d:S.day,t:`${p.name}: ${D.title}. ${t}`});
+  ev.forEach(e=>S.log.unshift({d:S.day,t:e.t}));
+  ui.modal={type:'dresult',tone,t,extra:ev};
+}
+function endDay(){
+  if(S.over)return;
+  const ev=[];
+  S.heroes.forEach(h=>{
+    if(h.injured>0)h.injured=Math.max(0,h.injured-(h.virtue==='vigorous'?2:1));
+    if(h.rest>0)h.rest--;
+  });
+  const wages=Math.round(S.heroes.reduce((s,h)=>s+h.wage,0)*efx('wage',1));
+  S.gold-=wages;
+  if(wages)ev.push({k:'info',q:true,t:`Paid ${wages} gold in wages.`});
+  if(S.gold<0){
+    const idle=S.heroes.filter(h=>status(h)==='ready');
+    if(idle.length){
+      const h=pick(idle);
+      S.heroes=S.heroes.filter(x=>x!==h);
+      S.parties.forEach(p=>p.members=p.members.filter(id=>id!==h.id));
+      ev.push({k:'loss',t:`You could not pay ${h.name}. They quit the guild.`});
+    }
+  }
+  S.parties.forEach(p=>{
+    if(!p.mission)return;
+    p.mission.daysLeft--;
+    if(p.mission.daysLeft<=0)resolve(p,ev);
+    else tickMission(p,ev);
+  });
+  if(rank()>=BOSS_RANK&&!S.bossSpawned){
+    S.bossSpawned=true;S.board.push(makeBossQuest());
+    ev.push({k:'rank',t:`A dread omen: ${BOSSES[S.boss].n} has awakened. ${BOSSES[S.boss].lore} A final quest is now on the board.`});
+  }
+  const before=S.board.length;
+  S.board.forEach(q=>{if(!q.boss&&!q.crisis)q.expires--});
+  S.board=S.board.filter(q=>q.boss||q.crisis||q.expires>0);
+  if(S.board.length<before)ev.push({k:'info',t:`${before-S.board.length} quest(s) expired on the board.`});
+  const cr=S.board.find(q=>q.crisis);
+  if(cr){
+    cr.expires--;
+    if(cr.expires<=0){
+      S.over=true;S.overReason=`You never answered "${cr.title}". ${cr.stake} The realm turned on your guild.`;
+      ev.push({k:'death',t:`The deadline passed. "${cr.title}" went unanswered.`});
+      S.board=S.board.filter(q=>q!==cr);
+    }else if(cr.expires===15||cr.expires===10)ev.push({k:'loss',t:`Crisis: ${cr.expires} days left to answer "${cr.title}".`});
+    else if(cr.expires===5||cr.expires===2)ev.push({k:'rank',t:`FINAL WARNING: only ${cr.expires} days left to answer "${cr.title}". Send a party now.`});
+  }else if(!S.over&&!S.parties.some(p=>p.mission&&p.mission.quest.crisis)&&S.day>=S.nextCrisis){
+    const c=makeCrisis();
+    S.board.push(c);S.nextCrisis=S.day+c.expires+ri(12,20);
+    ev.push({k:'rank',t:`CRISIS: ${c.title}. ${c.stake} Send a party within ${c.expires} days and win, or your guild is lost.`});
+  }
+  fillBoard();refreshTavern(2);
+  S.day++;
+  if(!S.heroes.length&&S.gold<50){S.over=true;ev.push({k:'death',t:'You have no heroes and no gold to hire more. The guild is finished.'})}
+  ev.forEach(e=>{if(!e.m)S.log.unshift({d:S.day-1,t:e.t})});
+  S.log=S.log.slice(0,60);
+  if(ev.some(e=>e.k==='death'||e.k==='rank'))ui.modal={type:'report',ev:ev.filter(e=>!e.q)};
+  else{ev.filter(e=>!e.q).forEach(pushToast);nextModal()}
+}
+let toastId=0;
+function pushToast(e){
+  ui.toasts.push({id:++toastId,k:e.k,t:e.t,until:Date.now()+7000});
+  if(ui.toasts.length>6)ui.toasts.shift();
+}
+function nextModal(){
+  if(S.over)ui.modal={type:'over'};
+  else if(S.pending.length)ui.modal={type:'decision'};
+  else if(S.vic===1){S.vic=2;ui.modal={type:'victory'}}
+  else if(S.offers.length)ui.modal={type:'offer'};
+  else{
+    while(S.storyQ.length&&!(hero(S.storyQ[0])&&hero(S.storyQ[0]).pend))S.storyQ.shift();
+    ui.modal=S.storyQ.length?{type:'story',hid:S.storyQ[0]}:null;
+  }
+}
+function chooseChapter(h,oi){
+  const ci=h.story.length,o=CHAPTERS[ci].o[oi],ev=[];
+  h.story.push({c:ci,o:oi});h.pend=false;
+  if(o.fx.wage)h.wage=Math.max(1,Math.round(h.wage*o.fx.wage));
+  shiftRep(h,o.r,ev);
+  S.storyQ=S.storyQ.filter(id=>id!==h.id);
+  S.log.unshift({d:S.day,t:`${h.name} shared a part of their past: ${o.l}. Trait gained: ${o.t}.`});
+  ev.forEach(e=>S.log.unshift({d:S.day,t:e.t}));
+  checkStory(h,null);
+  ui.modal={type:'storydone',hid:h.id,ci,oi,extra:ev};
+}
+
+/* ---------- legacy (carries across runs) ---------- */
+const calcLegacy=()=>rank()*10+Math.floor(S.stats.won/2)+Math.floor(S.day/10)+(S.vic?80:0);
+function loadMeta(){
+  M={legacy:0,total:0,perks:{},runs:[],hall:[]};
+  try{const d=JSON.parse(localStorage.getItem(MKEY));if(d&&d.perks)M=d}catch(e){}
+  M.hall=M.hall||[];
+}
+function saveMeta(){try{localStorage.setItem(MKEY,JSON.stringify(M))}catch(e){}}
+function bankLegacy(){
+  if(S.paid)return;
+  const gain=calcLegacy();
+  S.paid=true;S.gain=gain;
+  M.legacy+=gain;M.total+=gain;
+  M.runs.unshift({day:S.day,rank:RANKS[rank()].l,won:S.stats.won,vic:!!S.vic,gain,era:era().n});
+  M.runs=M.runs.slice(0,8);
+  S.heroes.filter(h=>(h.story||[]).length>=2).sort((a,b)=>(b.rep||0)-(a.rep||0)).slice(0,3).forEach(h=>M.hall.unshift(hallEntry(h)));
+  M.hall=M.hall.slice(0,12);
+  saveMeta();
+}
+
+/* ---------- rendering ---------- */
+function progress(p){const m=p.mission,t=m.total||m.quest.days;return clamp((t-m.daysLeft+ui.frac)/t*100,0,100)}
+const oddsClass=c=>c>=.7?'good':c>=.4?'warn':'bad';
+function oddsBar(c){const p=Math.round(c*100),k=oddsClass(c);return `<div class="odds"><div class="obar"><i class="${k}" style="width:${p}%"></i></div><b class="${k}">${p}%</b></div>`}
+const stressCls=s=>s>=75?'hi':s>=50?'mid':'';
+function heroCard(h,extra,compact){
+  const st=status(h),xpNeed=40*h.level;
+  const pill=st==='injured'?`<span class="pill bad">Injured ${h.injured}d</span>`:st==='resting'?`<span class="pill warn">Resting</span>`:st==='questing'?`<span class="pill warn">On quest</span>`:'';
+  const tags=Q(h).map(x=>`<span class="tag ${x.story?'story':x.pos?'pos':'neg'}" title="${esc(x.d)}">${x.n}</span>`);
+  if(h.affl)tags.push(`<span class="tag aff" title="${esc(AFFL[h.affl].d)}">${AFFL[h.affl].n}</span>`);
+  if(h.virtue)tags.push(`<span class="tag vir" title="${esc(VIRT[h.virtue].d)}">${VIRT[h.virtue].n}</span>`);
+  return `<div class="hero${compact?' compact':''}">
+    <div class="spr t${h.tier}" title="${CLASSES[h.cls].n}">${sprite(h.cls,h.tier,34)}</div>
+    <div class="hmain">
+      <div class="hname t${h.tier}">${esc(h.name)}</div>
+      <div class="hsub">${TIERS[h.tier].n} ${CLASSES[h.cls].n} · Lv ${h.level} · ${h.wage}g/day</div>
+      <div class="hstats">${STATS.map(s=>`<span><b>${stat(h,s)}</b>${SS[s]}</span>`).join('')}</div>
+      <div class="tags">${tags.join('')}</div>
+      <div class="rep">${repTier(h.rep||0).n===''?'':`<b class="${repTier(h.rep||0).cls}">${repTier(h.rep||0).n}</b> (${(h.rep||0)>0?'+':''}${h.rep||0})`}${(h.story||[]).length?` · ${alignTitle(h)}`:''}</div>
+      <div class="stress ${stressCls(h.stress)}" title="Stress ${h.stress}/100. At 100 the hero breaks."><i style="width:${h.stress}%"></i></div>
+      ${h.level<12?`<div class="xp" title="XP ${h.xp}/${xpNeed}"><i style="width:${Math.min(100,h.xp/xpNeed*100)}%"></i></div>`:''}
+    </div>
+    <div class="hside">${pill}${extra||''}</div></div>`;
+}
+function questCard(q){
+  const needs=STATS.filter(s=>q.w[s]).sort((a,b)=>q.w[b]-q.w[a]).map(s=>`<span class="need">${SL[s]} ${Math.round(q.w[s]*100)}%</span>`).join('');
+  return `<div class="card${q.boss?' boss':''}${q.crisis?' crisis':''}">
+    <div class="qtop"><div style="min-width:0"><div class="qtype">${q.type}</div><div class="qtitle">${esc(q.title)}</div>${q.crisis?`<div class="cinfo bad">${esc(q.stake)} Fail or ignore this and the guild is lost.</div>`:''}</div>
+      <div><div class="pips" title="Danger ${q.d} of 10">${Array.from({length:10},(_,i)=>`<i class="${i<q.d?'on':''}"></i>`).join('')}</div><div class="dlabel">Danger ${q.d}</div></div></div>
+    <div class="needs">${needs}</div>
+    <div class="rew"><span><b>${q.gold}</b> gold</span><span><b>${q.renown}</b> renown</span><span><b>${q.days}</b> day${q.days>1?'s':''}</span></div>
+    <div class="qfoot"><span class="cinfo">${q.boss?'Waits on the board until you are ready':q.crisis?`<b class="bad">${q.expires} days left to send a party</b>`:`Leaves board in ${q.expires} day${q.expires>1?'s':''}`}</span><button class="btn primary" data-act="assign" data-a="${q.id}">Send a party</button></div>
+  </div>`;
+}
+function missionCard(p){
+  const m=p.mission,q=m.quest,t=m.total||q.days,e=t-m.daysLeft,evs=m.ev||[],ms=members(p);
+  const now=progress(p);
+  let nodes=`<div class="node good" style="left:0" title="Departed">${icon('flag',16)}</div>`;
+  for(let k=1;k<=t;k++){
+    const ev=evs.find(x=>x.day===k),left=k/t*100;
+    if(k===t)nodes+=`<div class="node goal" style="left:${left}%" title="Destination">${icon('boss',16)}</div>`;
+    else if(k<=e&&ev&&ev.pending)nodes+=`<div class="node pending" style="left:${left}%" title="A decision awaits">!</div>`;
+    else if(k<=e&&ev)nodes+=`<div class="node ${ev.tone}" style="left:${left}%" title="${esc(ev.t)}">${icon(ev.icon,16)}</div>`;
+    else nodes+=`<div class="node unk" style="left:${left}%">?</div>`;
+  }
+  const log=evs.filter(x=>x.day<=e&&x.day<t&&!x.pending).map(x=>`<div class="${x.tone==='neutral'?'':x.tone}">${icon(x.icon,18)}<span><b>Day ${x.day}</b> ${esc(x.t)}</span></div>`).join('');
+  const mood=m.mom>.04?'<span class="pill good">Going well</span>':m.mom<-.04?'<span class="pill bad">Going badly</span>':'<span class="pill">Steady</span>';
+  return `<div class="card mission${q.boss?' boss':''}${q.crisis?' crisis':''}">
+    <div class="qtop"><div style="min-width:0"><div class="qtype">${esc(p.name)} · day ${e} of ${t}</div><div class="qtitle">${esc(q.title)}</div>${q.crisis?'<div class="cinfo bad">The guild’s survival depends on this quest.</div>':''}</div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><div class="dlabel">Danger ${q.d}</div>${mood}</div></div>
+    <div class="track"><div class="rail"></div><div class="fill" style="width:${now}%" data-pid="${p.id}"></div>${nodes}
+      <div class="runner" style="left:${now}%" data-pid="${p.id}">${ms.map(h=>sprite(h.cls,h.tier,26)).join('')}</div></div>
+    <div class="mstress">${ms.map(h=>`<div><small>${esc(h.name.split(' ')[0])} ${h.stress}</small><div class="stress ${stressCls(h.stress)}"><i style="width:${h.stress}%"></i></div></div>`).join('')}</div>
+    <div class="mlog"><div>${icon('flag',18)}<span><b>Day 0</b> ${esc(p.name)} sets out for ${esc(q.place)}.</span></div>${log}</div>
+  </div>`;
+}
+function partyCard(p){
+  const ms=members(p),busy=!!p.mission,inj=ms.some(unavailable);
+  const slots=Array.from({length:4},(_,i)=>{
+    const h=ms[i];
+    if(h)return heroCard(h,busy?'':`<button class="btn small" data-act="remove" data-a="${h.id}">Remove</button>`,true);
+    return busy?'':`<button class="slot-add" data-act="addslot" data-a="${p.id}">+ Add a hero</button>`;
+  }).join('');
+  const sums=STATS.map(s=>`<span><b>${ms.reduce((a,h)=>a+stat(h,s),0)}</b> ${SS[s]}</span>`).join('');
+  const state=busy?`<span class="pill warn">${esc(p.mission.quest.title)} · ${p.mission.daysLeft}d left</span>`:!ms.length?`<span class="pill">Empty</span>`:inj?`<span class="pill bad">Hero unavailable</span>`:`<span class="pill good">Ready</span>`;
+  const note=ms.length&&!ms.some(h=>h.cls==='cleric')?`<div class="cinfo">No cleric: injuries and deaths are twice as likely if a quest fails.</div>`:'';
+  return `<div class="party"><div class="phead"><h3>${esc(p.name)}</h3>${state}</div>
+    <div class="stack">${slots}</div><div class="ptotals">${sums}</div>${note}</div>`;
+}
+function renderRank(){
+  const r=rank(),next=RT[r+1],pct=next?(S.renown-RT[r])/(next-RT[r])*100:100;
+  const dmin=Math.min(8,1+r),dmax=Math.min(10,3+r);
+  let unlock='';
+  if(next){
+    const bits=[];
+    if(TIER_CAP[r+1]>TIER_CAP[r])bits.push(`${TIERS[TIER_CAP[r+1]].n} heroes`);
+    bits.push(`danger ${Math.min(8,2+r)}–${Math.min(10,4+r)} quests`,'+2 roster slots');
+    if(partyCount()<2+Math.floor((r+1)/2))bits.push('a new party');
+    if(r+1===BOSS_RANK)bits.push('the final quest');
+    unlock=`<span>Rank ${RANKS[r+1].l} unlocks: <b>${bits.join(', ')}</b></span>`;
+  }
+  return `<section class="rank"><div class="rletter">${RANKS[r].l}</div>
+    <div><div class="rname">${RANKS[r].n}</div>
+    <div class="meter" title="Renown"><i style="width:${pct}%"></i></div>
+    <div class="cinfo">${S.renown}${next?` / ${next}`:''} renown${next?'':' (max rank)'}</div></div>
+    <div class="rinfo"><span class="era" title="${esc(era().d)}">Era: <b>${era().n}</b></span><span>Quest danger now: <b>${dmin}–${dmax}</b></span><span>Best heroes in tavern: <b>${TIERS[TIER_CAP[r]].n}</b></span><span>Roster: <b>${S.heroes.length}/${rosterCap()}</b></span><span>Record: <b>${S.stats.won}W ${S.stats.lost}L</b></span>${unlock}</div></section>`;
+}
+function renderTab(){
+  if(ui.tab==='quests'){
+    const out=S.parties.filter(p=>p.mission);
+    return `<div class="sect"><h2>Out on quests</h2><span class="cinfo">Parties travel in real time and meet something on the road each day.</span></div>
+      ${out.length?`<div class="grid">${out.map(missionCard).join('')}</div>`:`<div class="empty">No party is out. Pick a quest below and send someone.</div>`}
+      <div class="sect"><h2>Quest board</h2><span class="cinfo">Higher danger pays more, but your odds drop.</span></div>
+      ${S.board.length?`<div class="grid">${S.board.map(questCard).join('')}</div>`:`<div class="empty">The board is empty. New quests arrive as days pass.</div>`}`;
+  }
+  if(ui.tab==='parties'){
+    return `<div class="sect"><h2>Your parties</h2><span class="cinfo">Up to 4 heroes each. Mix classes for better odds.</span></div>
+      <div class="grid">${S.parties.map(partyCard).join('')}</div>`;
+  }
+  if(ui.tab==='roster'){
+    const hs=[...S.heroes].sort((a,b)=>b.tier-a.tier||b.level-a.level);
+    return `<div class="sect"><h2>Roster</h2><span class="cinfo">${S.heroes.length}/${rosterCap()} heroes · wages ${Math.round(S.heroes.reduce((s,h)=>s+h.wage,0)*efx('wage',1))}g/day</span></div>
+      ${hs.length?`<div class="grid">${hs.map(h=>{
+        const pn=h.party&&party(h.party),st=status(h);
+        const dos=`<button class="btn small${h.pend?' primary':''}" data-act="dossier" data-a="${h.id}">${h.pend?'New chapter':'Dossier'}</button>`;
+        const relax=dos+(st==='ready'||st==='injured'?`<button class="btn small" data-act="relax" data-a="${h.id}">Relax</button>`:'');
+        const rel=st==='questing'?'':ui.confirm===h.id?`<button class="btn small danger" data-act="release" data-a="${h.id}">Confirm release</button>`:`<button class="btn small" data-act="release" data-a="${h.id}">Release</button>`;
+        return `<div class="stack">${heroCard(h,relax+rel)}<div class="cinfo">${pn?'In '+esc(pn.name):'Not in a party'} · ${h.wins} quests won</div></div>`;
+      }).join('')}</div>`:`<div class="empty">Nobody works for you. Visit the Tavern.</div>`}
+      ${S.fallen.length?`<div class="sect"><h2>Fallen</h2></div><div class="stack">${S.fallen.slice().reverse().map(f=>`<div class="cinfo">${esc(f.name)}${f.title?` (${f.title}, ${f.rep})`:''}, ${TIERS[f.tier].n} ${CLASSES[f.cls].n} (Lv ${f.level}), died on day ${f.day} during "${esc(f.quest)}".</div>`).join('')}</div>`:''}`;
+  }
+  if(ui.tab==='guild'){
+    const B=BOSSES[S.boss];
+    return `<div class="sect"><h2>Guild hall</h2><span class="cinfo">Upgrades last for this run.</span></div>
+      <div class="grid" style="margin-bottom:12px">
+        <div class="panel dread"><h3>The final quest</h3><div>${esc(B.n)}</div><div class="cinfo">${esc(B.lore)} Appears at Rank ${RANKS[BOSS_RANK].l}.${S.vic?' <b class="good">Defeated.</b>':S.bossSpawned?' <b class="bad">It is waiting on the board.</b>':''}</div></div>
+        <div class="panel dread"><h3>${era().n}</h3><div class="cinfo">${esc(era().d)}</div><div class="cinfo">Legacy points: <b>${M.legacy}</b>. Earned at the end of every run.</div><div><button class="btn small" data-act="legacy">View legacy perks</button></div></div>
+      </div>
+      <div class="grid">${BLD.map(b=>{
+        const lv=bl(b.id),max=b.cost.length,cost=b.cost[lv];
+        return `<div class="panel bld"><h3>${b.n}</h3><div class="bpips">${b.cost.map((_,i)=>`<i class="${i<lv?'on':''}"></i>`).join('')}</div><div class="cinfo">${b.d}</div>
+          ${lv<max?`<div><button class="btn small primary" data-act="build" data-a="${b.id}" ${S.gold<cost?'disabled':''}>Upgrade for ${cost}g</button></div>`:'<div class="cinfo good">Fully upgraded</div>'}</div>`;
+      }).join('')}</div>`;
+  }
+  const full=S.heroes.length>=rosterCap();
+  return `<div class="sect"><h2>Tavern</h2><button class="btn" data-act="reroll" ${S.gold<20?'disabled':''}>New faces (20 gold)</button></div>
+    <p class="cinfo" style="margin:0 0 10px">${full?'Your roster is full. Release someone or rank up to hire more. ':''}Hiring is a one-time fee. Every hero also costs daily wages. Check quirks before you sign.</p>
+    <div class="grid">${S.tavern.map(h=>heroCard(h,`<button class="btn small primary" data-act="hire" data-a="${h.id}" ${full||S.gold<h.cost?'disabled':''}>Hire ${h.cost}g</button>`)).join('')}</div>
+    <p class="cinfo" style="margin-top:10px">Cleric: ${CLASSES.cleric.role}</p>`;
+}
+const reliefOpts=h=>{
+  const b=5*perk('hearth');
+  const o=[{id:'free',n:'Rest at home',cost:0,amt:8+b,d:'A quiet day off.'},{id:'pub',n:'Drink at the pub',cost:25,amt:20+b,d:'Loud, cheap and surprisingly effective.'}];
+  if(bl('chapel'))o.push({id:'chapel',n:'Pray at the chapel',cost:50,amt:30+10*bl('chapel')+b,d:'Calm and clarity.'});
+  return o;
+};
+function renderModal(){
+  const m=ui.modal;if(!m)return '';
+  let body='',dismiss=true,dark=false;
+  if(m.type==='intro'){
+    body=`<h2>Welcome, Guildmaster</h2>
+      <ol class="steps">
+        <li><b>Hire heroes</b> in the Tavern. Each has a class, rarity and quirks, good and bad. Wages come out every day.</li>
+        <li><b>Build parties</b> of up to 4. Different classes boost your odds. A Cleric keeps people alive.</li>
+        <li><b>Send a party on a quest.</b> Time flows on its own, so use the speed buttons at the top (Pause, 1x, 2x, 4x). Your party travels and meets things on the road, and sometimes the game stops so you can decide what they do. Some choices need a specific class. Opening any menu also pauses time.</li>
+        <li><b>Watch stress.</b> Fear builds up. At 100 a hero breaks: afflicted, or rarely, heroic. Use the Relax button on the Roster tab to calm them down.</li>
+        <li><b>Build their legends.</b> Wins raise a hero’s reputation and losses lower it. As they finish quests, new chapters of their backstory unlock. You choose how each one reads, and each choice grants a trait and shapes their morals.</li>
+        <li><b>Answer crises.</b> Now and then, a red crisis quest appears with a 25-day deadline. If it expires unanswered, or your party fails it, your guild is lost. A banner at the top counts the days down.</li>
+        <li><b>Grow the guild.</b> Win quests for renown and rank. Spend gold on upgrades in the Guild tab. Stronger heroes come knocking.</li>
+        <li><b>Reach Rank S</b> and the final boss awakens. Slay it to win the run. Every run, win or lose, earns Legacy points that unlock perks and new classes for the next run.</li>
+      </ol>
+      <p class="mute">Your first heroes are already in Party 1. Try a Danger 1 quest.</p>
+      <div class="mact"><button class="btn primary" data-act="close">Let’s go</button></div>`;
+  }else if(m.type==='assign'){
+    const q=S.board.find(x=>x.id==m.qid);
+    if(!q){ui.modal=null;return ''}
+    const rows=S.parties.map(p=>{
+      const ms=members(p);
+      const why=p.mission?'Out on a quest':!ms.length?'Has no heroes':ms.some(unavailable)?'Hero injured or resting':'';
+      return {p,ms,why,c:chance(ms,q)};
+    });
+    const best=Math.max(...rows.filter(r=>!r.why).map(r=>r.c),-1);
+    body=`<h2>${esc(q.title)}</h2>
+      <p class="mute">Danger ${q.d} · ${q.type} · ${q.gold} gold, ${q.renown} renown, ${q.days} days. Needs ${STATS.filter(s=>q.w[s]).sort((a,b)=>q.w[b]-q.w[a]).map(s=>SL[s]).join(', ')}.</p>
+      <div class="stack">${rows.map(r=>`<div class="arow"><div class="top"><b>${esc(r.p.name)}</b>
+        ${r.why?`<span class="pill">${r.why}</span>`:`<button class="btn small primary" data-act="send" data-a="${q.id}" data-b="${r.p.id}">${r.c===best&&rows.filter(x=>!x.why).length>1?'Send (best odds)':'Send'}</button>`}</div>
+        <div class="names">${r.ms.length?r.ms.map(h=>esc(h.name.split(' ')[0])+' ('+CLASSES[h.cls].n+', stress '+h.stress+')').join(', '):'Nobody assigned'}</div>
+        ${r.ms.length?oddsBar(r.c):''}</div>`).join('')}</div>
+      ${q.crisis?'<p class="bad"><b>This is a crisis.</b> If this party fails, the guild is lost. Send your strongest and check their stress first.</p>':''}
+      <p class="cinfo">Odds start here and move with what happens on the road.${S.hardcore?` If the quest fails, each hero risks death: about ${Math.round(deathChance(q,false,false)*100)}%, or ${Math.round(deathChance(q,true,false)*100)}% with a Cleric. A crushing defeat is worse.`:' Heroes cannot die right now (see the toggle at the bottom).'}</p>
+      <div class="mact"><button class="btn" data-act="tab" data-a="parties">Edit parties</button><button class="btn" data-act="close">Cancel</button></div>`;
+  }else if(m.type==='addmember'){
+    const p=party(m.pid),free=S.heroes.filter(h=>!h.party).sort((a,b)=>b.tier-a.tier);
+    body=`<h2>Add to ${esc(p.name)}</h2>
+      ${free.length?`<div class="stack">${free.map(h=>heroCard(h,`<button class="btn small primary" data-act="addhero" data-a="${p.id}" data-b="${h.id}">Add</button>`,true)).join('')}</div>`:`<div class="empty">Every hero is already in a party. Hire someone in the Tavern or remove a hero from another party.</div>`}
+      <div class="mact"><button class="btn" data-act="close">Done</button></div>`;
+  }else if(m.type==='relax'){
+    const h=hero(m.hid);
+    if(!h){ui.modal=null;return ''}
+    body=`<h2>Relax</h2>${heroCard(h,'',true)}
+      <div class="stack">${reliefOpts(h).map(o=>`<button class="opt" data-act="relief" data-a="${h.id}" data-b="${o.id}" ${S.gold<o.cost?'disabled':''}><span><b>${o.n}</b><br><span class="cinfo">${o.d} Stress -${o.amt}. Unavailable for one day.</span></span><small>${o.cost?o.cost+' gold':'Free'}</small></button>`).join('')}</div>
+      ${bl('chapel')?'':'<p class="cinfo">Build a Chapel in the Guild tab for stronger relief.</p>'}
+      <div class="mact"><button class="btn" data-act="close">Cancel</button></div>`;
+  }else if(m.type==='report'){
+    body=`<h2>Day ${S.day-1} report</h2><ul class="ev">${m.ev.map(e=>`<li class="${e.k}">${esc(e.t)}</li>`).join('')||'<li>A quiet day.</li>'}</ul>
+      <div class="mact"><button class="btn primary" data-act="next">Continue</button></div>`;dismiss=false;
+  }else if(m.type==='decision'){
+    const pd=S.pending[0],p=party(pd.pid),mi=p.mission,me=mi.ev.find(x=>x.day===pd.day&&x.pending),D=DECISIONS[me.did],ms=members(p),ch=chance(ms,mi.quest);
+    body=`<div class="dhead">${icon(D.icon,40)}<div><h2>${D.title}</h2><div class="cinfo">${esc(p.name)} · ${esc(mi.quest.title)}</div></div></div>
+      <p>${D.text}</p>
+      <div class="stack">${D.o.map((o,i)=>{
+        const has=!o.c||ms.some(h=>h.cls===o.c);
+        let tag='<small class="safe">Safe</small>';
+        if(!o.s){const pr=clamp(o.p+(ch-.5)*.3,.1,.95);tag=pr>=.75?'<small class="safe">Likely</small>':pr>=.5?'<small class="even">Even odds</small>':'<small class="risky">Risky</small>'}
+        if(!has)tag=`<small class="need">Needs a ${CLASSES[o.c].n}</small>`;
+        return `<button class="opt" data-act="decide" data-a="${i}" ${has?'':'disabled'}><span>${o.l}${o.c&&has?` <span class="cinfo">(${CLASSES[o.c].n} skill)</span>`:''}</span>${tag}</button>`;
+      }).join('')}</div>`;dismiss=false;
+  }else if(m.type==='dresult'){
+    body=`<h2 class="${m.tone==='good'?'good':m.tone==='bad'?'bad':''}">${m.tone==='good'?'It works':m.tone==='bad'?'It goes wrong':'The party plays it safe'}</h2>
+      <p>${esc(m.t)}</p>${m.extra.length?`<ul class="ev">${m.extra.map(e=>`<li class="${e.k}">${esc(e.t)}</li>`).join('')}</ul>`:''}
+      <div class="mact"><button class="btn primary" data-act="next">Continue</button></div>`;dismiss=false;
+  }else if(m.type==='offer'){
+    const o=S.offers[0],h=o.hero,full=S.heroes.length>=rosterCap();
+    body=`<h2>A visitor at the door</h2>
+      <p><b class="hname t${h.tier}" style="display:inline">${esc(h.name)}</b>, a ${TIERS[h.tier].n} ${CLASSES[h.cls].n}, ${esc(o.why)}</p>
+      ${heroCard(h,'',true)}
+      ${full?'<p class="bad">Your roster is full. Release someone from the Roster tab first, or turn them away.</p>':''}
+      <div class="mact"><button class="btn" data-act="decline">Turn away</button><button class="btn primary" data-act="accept" ${full?'disabled':''}>Welcome them</button></div>`;dismiss=false;
+  }else if(m.type==='dossier'){
+    const h=hero(m.hid);
+    if(!h){ui.modal=null;return ''}
+    const rt=repTier(h.rep||0);
+    body=`<h2>${esc(h.name)}</h2>${heroCard(h,'',true)}
+      <p class="cinfo">Reputation: <b class="${rt.cls}">${rt.n}</b> (${(h.rep||0)>0?'+':''}${h.rep||0}) · Leaning: <b>${alignTitle(h)}</b> · ${h.quests||0} quests finished. Wins raise reputation and losses lower it.</p>
+      <div class="stack">${CHAPTERS.map((C,i)=>{
+        const s=h.story[i];
+        if(s){const o=C.o[s.o];return `<div class="chap"><div class="chead">Chapter ${i+1}: ${C.n} — ${o.l}</div><p>${esc(fillStory(o.s,h))}</p><div class="cinfo">Trait: <b>${o.t}</b>. ${o.d}</div></div>`}
+        if(i===h.story.length&&h.pend)return `<div class="chap pend"><div class="chead">Chapter ${i+1}: ${C.n}</div><p class="cinfo">This chapter is ready to be written.</p><div><button class="btn primary small" data-act="story" data-a="${h.id}">Write this chapter</button></div></div>`;
+        return `<div class="chap lock">Chapter ${i+1}: ??? Unlocks after ${C.at} finished quest${C.at>1?'s':''} (${Math.min(h.quests||0,C.at)}/${C.at}).</div>`;
+      }).join('')}</div>
+      <div class="mact"><button class="btn" data-act="close">Close</button></div>`;
+  }else if(m.type==='story'){
+    const h=hero(m.hid);
+    if(!h||!h.pend){ui.modal=null;return ''}
+    const ci=h.story.length,C=CHAPTERS[ci];
+    const opts=C.o.map((o,i)=>({o,i})).filter(x=>!x.o.k||(x.o.k==='hi'&&h.rep>=40)||(x.o.k==='lo'&&h.rep<=-30));
+    body=`<h2>Chapter ${ci+1}: ${C.n}</h2>
+      <p>${esc(fillStory(C.intro,h))}</p>
+      <p class="cinfo">Choose how this part of ${esc(h.name.split(' ')[0])}’s story reads. It becomes permanent, grants a trait and moves their reputation. A very high or very low reputation opens up different choices.</p>
+      <div class="stack">${opts.map(({o,i})=>`<button class="sopt" data-act="storychoose" data-a="${h.id}" data-b="${i}">
+        <b>${o.l}${o.k==='hi'?' <span class="tag vir">Legend</span>':o.k==='lo'?' <span class="tag aff">Infamy</span>':''}</b>
+        <span class="stext">${esc(fillStory(o.s,h))}</span>
+        <span class="cinfo">Trait: <b>${o.t}</b>. ${o.d} Reputation ${o.r>=0?'+':''}${o.r}. Leans ${o.m>0?'honorable':o.m<0?'ruthless':'pragmatic'}.</span></button>`).join('')}</div>
+      <div class="mact"><button class="btn" data-act="later" data-a="${h.id}">Decide later</button></div>`;dismiss=false;
+  }else if(m.type==='storydone'){
+    const h=hero(m.hid),o=CHAPTERS[m.ci].o[m.oi];
+    body=`<h2>${esc(o.l)}</h2><p>${esc(fillStory(o.s,h))}</p>
+      <p class="cinfo">${esc(h.name.split(' ')[0])} gains <b>${o.t}</b>. ${o.d}${h.pend?' Another chapter is already waiting.':''}</p>
+      ${m.extra.length?`<ul class="ev">${m.extra.map(e=>`<li class="${e.k}">${esc(e.t)}</li>`).join('')}</ul>`:''}
+      <div class="mact"><button class="btn primary" data-act="next">Continue</button></div>`;dismiss=false;
+  }else if(m.type==='victory'){
+    const B=BOSSES[S.boss];dark=true;
+    body=`<h2>${esc(B.n)} is slain</h2>
+      <p>You led the guild from a ragged tavern to the end of the age. This run was won on day ${S.day-1}, at Rank ${RANKS[rank()].l}, with ${S.stats.won} quests completed.</p>
+      <p>Retiring now earns <b class="good">${calcLegacy()} legacy points</b> for your next run. You can also keep playing and retire later.</p>
+      <div class="mact"><button class="btn" data-act="close">Keep playing</button><button class="btn primary" data-act="claim">Retire and claim legacy</button></div>`;dismiss=false;
+  }else if(m.type==='retire'){
+    body=`<h2>Retire this run?</h2><p>You will earn <b class="good">${calcLegacy()} legacy points</b> and start a fresh guild. This guild is lost.</p>
+      <div class="mact"><button class="btn" data-act="close">Keep playing</button><button class="btn danger" data-act="claim">Retire</button></div>`;
+  }else if(m.type==='legacy'){
+    dark=true;
+    body=`<h2>Legacy</h2><p>Spendable points: <b class="good">${M.legacy}</b>${S.gain&&m.between?` (you just earned ${S.gain})`:''}. Perks carry into every future run.</p>
+      <div class="stack">${PERKS.map(p=>{
+        const lv=perk(p.id),max=p.cost.length,cost=p.cost[lv];
+        return `<div class="arow"><div class="top"><b>${p.n}</b><span class="bpips">${p.cost.map((_,i)=>`<i class="${i<lv?'on':''}"></i>`).join('')}</span></div>
+          <div class="cinfo">${p.d}</div>
+          ${lv<max?`<div><button class="btn small primary" data-act="buyperk" data-a="${p.id}" ${M.legacy<cost?'disabled':''}>Buy for ${cost}</button></div>`:'<div class="cinfo good">Owned</div>'}</div>`;
+      }).join('')}</div>
+      ${M.hall.length?`<div class="cinfo"><b>Hall of Legends:</b><br>${M.hall.slice(0,8).map(x=>`${esc(x.name)}, ${TIERS[x.tier].n} ${CLASSES[x.cls]?CLASSES[x.cls].n:''} · ${x.title}, ${repTier(x.rep).n}${x.fell?' (fell in service)':''}${x.traits.length?' · '+esc(x.traits.join(', ')):''}`).join('<br>')}</div>`:''}
+      ${M.runs.length?`<div class="cinfo"><b>Past runs:</b><br>${M.runs.slice(0,5).map(r=>`${r.vic?'Victory':'Fell'} · day ${r.day} · Rank ${r.rank} · ${r.won} quests · ${esc(r.era)} · +${r.gain}`).join('<br>')}</div>`:''}
+      <div class="mact">${m.between?`<button class="btn primary" data-act="begin">Begin a new run</button>`:`<button class="btn" data-act="close">Close</button>`}</div>`;dismiss=!m.between;
+  }else if(m.type==='newgame'){
+    body=`<h2>Start over?</h2><p>This ends your current guild and starts a new one. You keep the legacy points this run has earned (${calcLegacy()}).</p>
+      <div class="mact"><button class="btn" data-act="close">Keep playing</button><button class="btn danger" data-act="claim">End run and restart</button></div>`;
+  }else if(m.type==='over'){
+    dark=true;
+    body=`<h2>The guild has fallen</h2>${S.overReason?`<p class="bad">${esc(S.overReason)}</p>`:''}<p>You lasted ${S.day-1} days, won ${S.stats.won} quests, lost ${S.stats.lost}, and reached Rank ${RANKS[rank()].l}. ${S.stats.fallen} heroes died in your service.</p>
+      <p>This run earns <b class="good">${calcLegacy()} legacy points</b>.</p>
+      <div class="mact"><button class="btn primary" data-act="claim">Claim legacy and continue</button></div>`;dismiss=false;
+  }
+  return `<div class="back" ${dismiss?'data-act="backdrop"':''}><div class="modal${dark?' dark':''}" role="dialog" aria-modal="true">${body}</div></div>`;
+}
+function render(){
+  const y=window.scrollY;
+  const tabs=[['quests','Quests',S.board.length],['parties','Parties',S.parties.length],['roster','Roster',S.heroes.length,S.heroes.filter(h=>h.pend).length],['tavern','Tavern',null],['guild','Guild',null]];
+  document.getElementById('app').innerHTML=`
+    <div class="bar"><div class="logo">Guildmaster</div>
+      <div class="chip"><small>Day</small><b>${S.day}</b></div>
+      <div class="chip"><small>Gold</small><b class="${S.gold<0?'neg':''}">${S.gold}</b></div>
+      <div class="speed" role="group" aria-label="Game speed">${[['0','Pause'],['1','1x'],['2','2x'],['4','4x']].map(s=>`<button class="${(ui.paused?'0':String(ui.speed))===s[0]?'on':''}" data-act="speed" data-a="${s[0]}">${s[1]}</button>`).join('')}</div>
+      <div class="daymeter" title="Progress through the current day"><i id="dayfill" style="width:${ui.frac*100}%"></i></div></div>
+    ${(()=>{
+      const c=S.board.find(x=>x.crisis),m=S.parties.find(p=>p.mission&&p.mission.quest.crisis);
+      if(c)return `<div class="crisisbar${c.expires<=5?' hot':''}"><span><b>CRISIS:</b> ${esc(c.title)}. <b>${c.expires} days</b> left to send a party.</span><button class="btn small" data-act="tab" data-a="quests">View</button></div>`;
+      if(m)return `<div class="crisisbar"><span><b>CRISIS:</b> ${esc(m.name)} is facing "${esc(m.mission.quest.title)}". If they fail, the guild is lost.</span></div>`;
+      return '';
+    })()}
+    ${renderRank()}
+    <nav class="tabs">${tabs.map(t=>`<button class="tab ${ui.tab===t[0]?'on':''}" data-act="tab" data-a="${t[0]}">${t[1]}${t[2]!==null?`<em>${t[2]}</em>`:''}${t[3]?'<span class="pill good" style="margin-left:6px">Story</span>':''}</button>`).join('')}</nav>
+    ${renderTab()}
+    <section class="ledger"><h2>Guild ledger</h2><ol>${S.log.slice(0,8).map(l=>`<li><span>Day ${l.d}</span>${esc(l.t)}</li>`).join('')}</ol></section>
+    <div class="foot"><button class="btn small" data-act="hardcore">Heroes can die: ${S.hardcore?'ON':'OFF'}</button><button class="btn small" data-act="help">How to play</button><button class="btn small" data-act="legacy">Legacy</button><button class="btn small" data-act="retire">Retire run</button></div>
+    ${renderModal()}`;
+  window.scrollTo(0,y);
+  renderToasts();
+  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+}
+
+/* ---------- live clock ---------- */
+const DAY_MS=7000;
+function renderToasts(){
+  const box=document.getElementById('toasts');
+  box.innerHTML=ui.toasts.map(t=>`<div class="toast ${t.k}" data-toast="${t.id}">${esc(t.t)}</div>`).join('');
+}
+function tickUI(){
+  const f=document.getElementById('dayfill');
+  if(f)f.style.width=ui.frac*100+'%';
+  S.parties.forEach(p=>{
+    if(!p.mission)return;
+    const v=progress(p)+'%';
+    document.querySelectorAll(`.runner[data-pid="${p.id}"]`).forEach(el=>el.style.left=v);
+    document.querySelectorAll(`.fill[data-pid="${p.id}"]`).forEach(el=>el.style.width=v);
+  });
+  const n=ui.toasts.length;
+  ui.toasts=ui.toasts.filter(t=>t.until>Date.now());
+  if(ui.toasts.length!==n)renderToasts();
+}
+let lastT=performance.now();
+function loop(){
+  const now=performance.now(),dt=Math.min(250,now-lastT);lastT=now;
+  if(!S)return;
+  if(S.over||ui.modal||ui.paused||document.hidden){tickUI();return}
+  ui.frac+=dt*ui.speed/DAY_MS;
+  if(ui.frac>=1){ui.frac=0;endDay();render()}
+  else tickUI();
+}
+setInterval(loop,100);
+
+/* ---------- actions ---------- */
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;
+  if(el.dataset.act==='backdrop'&&e.target!==el)return;
+  const a=el.dataset.a,b=el.dataset.b;
+  switch(el.dataset.act){
+    case 'tab':ui.tab=a;ui.modal=null;ui.confirm=null;break;
+    case 'speed':if(a==='0')ui.paused=true;else{ui.paused=false;ui.speed=+a}break;
+    case 'assign':ui.modal={type:'assign',qid:a};break;
+    case 'send':{
+      const q=S.board.find(x=>x.id==a),p=party(+b);
+      if(q&&p&&!p.mission&&p.members.length&&!members(p).some(unavailable)){
+        p.mission={quest:q,daysLeft:q.days,total:q.days,mom:0,used:[],ev:[]};
+        S.board=S.board.filter(x=>x!==q);
+        S.log.unshift({d:S.day,t:`${p.name} set out on "${q.title}".`});
+      }
+      ui.modal=null;break;
+    }
+    case 'decide':decide(+a);break;
+    case 'addslot':ui.modal={type:'addmember',pid:+a};break;
+    case 'addhero':{
+      const p=party(+a),h=hero(+b);
+      if(p&&h&&!p.mission&&p.members.length<4&&!h.party){p.members.push(h.id);h.party=p.id}
+      if(p&&p.members.length>=4)ui.modal=null;
+      break;
+    }
+    case 'remove':{
+      const h=hero(+a),p=h&&party(h.party);
+      if(p&&!p.mission){p.members=p.members.filter(id=>id!==h.id);h.party=null}
+      break;
+    }
+    case 'hire':{
+      const h=S.tavern.find(x=>x.id==a);
+      if(h&&S.gold>=h.cost&&S.heroes.length<rosterCap()){
+        S.gold-=h.cost;S.tavern=S.tavern.filter(x=>x!==h);delete h.cost;S.heroes.push(h);
+        S.log.unshift({d:S.day,t:`Hired ${h.name}, a ${TIERS[h.tier].n} ${CLASSES[h.cls].n}.`});
+      }
+      break;
+    }
+    case 'reroll':if(S.gold>=20){S.gold-=20;S.tavern=[];refreshTavern(0)}break;
+    case 'release':{
+      const h=hero(+a);
+      if(ui.confirm===h.id){
+        S.heroes=S.heroes.filter(x=>x!==h);
+        S.parties.forEach(p=>p.members=p.members.filter(id=>id!==h.id));
+        S.log.unshift({d:S.day,t:`Released ${h.name}.`});ui.confirm=null;
+      }else ui.confirm=h.id;
+      break;
+    }
+    case 'relax':ui.modal={type:'relax',hid:+a};break;
+    case 'dossier':ui.modal={type:'dossier',hid:+a};break;
+    case 'story':ui.modal={type:'story',hid:+a,from:'dossier'};break;
+    case 'storychoose':{const h=hero(+a);if(h&&h.pend)chooseChapter(h,+b);break}
+    case 'later':{
+      const from=ui.modal&&ui.modal.from;
+      S.storyQ=S.storyQ.filter(id=>id!==+a);
+      if(from==='dossier')ui.modal={type:'dossier',hid:+a};else nextModal();
+      break;
+    }
+    case 'relief':{
+      const h=hero(+a),o=h&&reliefOpts(h).find(x=>x.id===b);
+      if(h&&o&&S.gold>=o.cost&&status(h)!=='questing'){
+        S.gold-=o.cost;h.rest=1;
+        const ev=[];addStress(h,-o.amt,[h],ev);
+        S.log.unshift({d:S.day,t:`${h.name} takes a day to relax (${o.n}). Stress -${o.amt}.`});
+        ev.forEach(x=>S.log.unshift({d:S.day,t:x.t}));
+      }
+      ui.modal=null;break;
+    }
+    case 'build':{
+      const b0=BLD.find(x=>x.id===a),cost=b0.cost[bl(a)];
+      if(cost!==undefined&&S.gold>=cost){S.gold-=cost;S.bld[a]=bl(a)+1;S.log.unshift({d:S.day,t:`${b0.n} upgraded to level ${S.bld[a]}.`})}
+      break;
+    }
+    case 'accept':{
+      const o=S.offers[0];
+      if(o&&S.heroes.length<rosterCap()){S.heroes.push(o.hero);S.offers.shift();S.log.unshift({d:S.day,t:`${o.hero.name} joined the guild.`});nextModal()}
+      break;
+    }
+    case 'decline':S.offers.shift();nextModal();break;
+    case 'next':nextModal();break;
+    case 'close':case 'backdrop':ui.modal=null;break;
+    case 'hardcore':S.hardcore=!S.hardcore;break;
+    case 'help':ui.modal={type:'intro'};break;
+    case 'legacy':ui.modal={type:'legacy'};break;
+    case 'retire':ui.modal={type:'retire'};break;
+    case 'claim':bankLegacy();ui.modal={type:'legacy',between:true};break;
+    case 'buyperk':{
+      const p=PERKS.find(x=>x.id===a),cost=p.cost[perk(a)];
+      if(cost!==undefined&&M.legacy>=cost){M.legacy-=cost;M.perks[a]=perk(a)+1;saveMeta()}
+      break;
+    }
+    case 'begin':{const first=!M.runs.length;newGame();ui={tab:'quests',modal:first?{type:'intro'}:null,confirm:null,speed:1,paused:true,frac:0,toasts:[]};break}
+  }
+  if(el.dataset.act!=='release'&&el.dataset.act!=='tab')ui.confirm=null;
+  render();
+});
+
+/* ---------- boot ---------- */
+loadMeta();
+let loaded=false;
+try{
+  const raw=localStorage.getItem(KEY);
+  if(raw){const d=JSON.parse(raw);if(d&&d.v===2&&Array.isArray(d.heroes)){S=d;loaded=true}}
+}catch(e){}
+if(loaded){
+  S.storyQ=S.storyQ||[];
+  if(S.nextCrisis===undefined)S.nextCrisis=S.day+ri(10,16);
+  S.heroes.forEach(h=>{h.rep=h.rep||0;h.quests=h.quests||0;h.story=h.story||[];h.pend=!!h.pend});
+  S.fallen.forEach(f=>{f.title=f.title||'';f.rep=f.rep||'Unknown'});
+}
+if(!loaded){newGame();ui.modal={type:'intro'}}
+else nextModal();
+render();
+})();
+</script>
+
+</body>
+</html>
