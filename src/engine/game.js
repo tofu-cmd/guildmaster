@@ -102,7 +102,7 @@ export function foundGuild(){
   S.heroes.forEach(h=>jot(h,`Joined ${S.guildName} as a founding member.`,'moment',true));
   note(`${S.guildName} opens its doors with ${S.heroes.map(h=>h.name.split(' ')[0]).join(', ')}. Era: ${era().n}.`,'world',1);
   ui.create=null;
-  if(ui.introAfter){ui.modal={type:'intro'};ui.introAfter=false}
+  if(ui.introAfter){pushToast({k:'info',t:'Tip: click a quest pin on the map to send a party. "How to play" is always at the bottom.'});ui.introAfter=false}
 }
 export function pickTier(){
   const cap=TIER_CAP[rank()],w=[50,30,15,8,3].slice(0,cap+1);
@@ -578,19 +578,17 @@ export function endDay(){
   S.day++;
   if(!S.heroes.length&&S.gold<50){S.over=true;ev.push({k:'death',t:'You have no heroes and no gold to hire more. The guild is finished.'})}
   ev.forEach(e=>{if(!e.m)note(e.t,null,S.day-1)});
-  const shown=ev.filter(e=>!e.q);
-  if(shown.some(e=>e.k==='death'||e.k==='rank')||(ui.mode!=='live'&&shown.length))ui.modal={type:'report',ev:shown};
-  else{shown.forEach(pushToast);nextModal()}
+  ev.filter(e=>!e.q).forEach(pushToast);
+  nextModal();
 }
 export let toastId=0;
 export function pushToast(e){
-  ui.toasts.push({id:++toastId,k:e.k,t:e.t,until:Date.now()+7000});
-  if(ui.toasts.length>6)ui.toasts.shift();
+  ui.toasts.push({id:++toastId,k:e.k,t:e.t,until:Date.now()+(e.k==='death'||e.k==='rank'?15000:7000)});
+  if(ui.toasts.length>7)ui.toasts.shift();
 }
 export function nextModal(){
   if(S.over)ui.modal={type:'over'};
   else if(S.vic===1){S.vic=2;ui.modal={type:'victory'}}
-  else if(S.offers.length)ui.modal={type:'offer'};
   else ui.modal=null;
 }
 
@@ -832,6 +830,7 @@ export function initGame(){
   if(!loaded){newGame();ui.introAfter=true}
   else if(S.setup){initCreate()}
   else nextModal();
+  if(typeof window!=='undefined'&&window.innerWidth<700)ui.mv={x:GUILD.x-220,y:GUILD.y-148,w:440};
   saveNow();
 }
 

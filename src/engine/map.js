@@ -21,12 +21,15 @@ export let terrainCache='';
 export function terrain(){
   if(terrainCache)return terrainCache;
   let seed=7;const rr=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
-  let s=`<rect width="${MAPW}" height="${MAPH}" fill="#1b150f"/>`;
-  for(let i=0;i<14;i++)s+=`<ellipse cx="${(rr()*MAPW).toFixed(0)}" cy="${(rr()*MAPH).toFixed(0)}" rx="${(40+rr()*60).toFixed(0)}" ry="${(20+rr()*35).toFixed(0)}" fill="#241b13" opacity=".7"/>`;
-  s+=`<path d="M0 95C90 125 150 60 240 112S380 190 430 252S560 360 640 332" fill="none" stroke="#3b4a4f" stroke-width="10" opacity=".9"/>`;
-  for(let i=0;i<15;i++){const x=30+rr()*580,y=16+rr()*42;s+=`<path d="M${(x-12).toFixed(0)} ${(y+11).toFixed(0)}L${x.toFixed(0)} ${(y-9).toFixed(0)}L${(x+12).toFixed(0)} ${(y+11).toFixed(0)}z" fill="#5b4d40"/><path d="M${(x-3.5).toFixed(0)} ${(y-2).toFixed(0)}L${x.toFixed(0)} ${(y-9).toFixed(0)}L${(x+3.5).toFixed(0)} ${(y-2).toFixed(0)}z" fill="#e6d3a6"/>`}
-  for(let i=0;i<75;i++){
-    const x=rr()*MAPW,y=70+rr()*(MAPH-80);
+  const X0=-420,X1=MAPW+420,Y0=-420,Y1=MAPH+420;
+  let s=`<rect x="${X0-400}" y="${Y0-400}" width="${X1-X0+800}" height="${Y1-Y0+800}" fill="#1b150f"/>`;
+  for(let i=0;i<46;i++)s+=`<ellipse cx="${(X0+rr()*(X1-X0)).toFixed(0)}" cy="${(Y0+rr()*(Y1-Y0)).toFixed(0)}" rx="${(40+rr()*70).toFixed(0)}" ry="${(20+rr()*40).toFixed(0)}" fill="#241b13" opacity=".7"/>`;
+  s+=`<path d="M-460 40C-330 100 -170 80 -70 70S-20 100 0 95C90 125 150 60 240 112S380 190 430 252S560 360 640 332S820 290 1000 350" fill="none" stroke="#3b4a4f" stroke-width="10" opacity=".9"/>`;
+  const peak=(x,y,snow)=>`<path d="M${(x-12).toFixed(0)} ${(y+11).toFixed(0)}L${x.toFixed(0)} ${(y-9).toFixed(0)}L${(x+12).toFixed(0)} ${(y+11).toFixed(0)}z" fill="#5b4d40"/>${snow?`<path d="M${(x-3.5).toFixed(0)} ${(y-2).toFixed(0)}L${x.toFixed(0)} ${(y-9).toFixed(0)}L${(x+3.5).toFixed(0)} ${(y-2).toFixed(0)}z" fill="#e6d3a6"/>`:''}`;
+  for(let i=0;i<15;i++)s+=peak(30+rr()*580,16+rr()*42,true);
+  for(let i=0;i<46;i++)s+=peak(X0+rr()*(X1-X0),Y0+rr()*(14-Y0),rr()<.7);
+  for(let i=0;i<300;i++){
+    const x=X0+rr()*(X1-X0),y=72+rr()*(Y1-72);
     if(Math.hypot(x-GUILD.x,y-GUILD.y)<42)continue;
     s+=`<path d="M${x.toFixed(0)} ${(y-8).toFixed(0)}l5 9h-10z" fill="${rr()<.5?'#3a3820':'#4a4527'}"/>`;
   }

@@ -153,22 +153,6 @@ function Report({ m }) {
   );
 }
 
-function Offer() {
-  const o = S.offers[0];
-  useCloseWhen(!o);
-  if (!o) return null;
-  const h = o.hero, full = S.heroes.length >= rosterCap();
-  return (
-    <Shell dismiss={false}>
-      <Title>A visitor at the door</Title>
-      <p><b className={'hname t' + h.tier} style={{ display: 'inline', color: `var(--t${h.tier})` }}>{h.name}</b>, a {TIERS[h.tier].n} {CLASSES[h.cls].n}, {o.why}</p>
-      <HeroCard h={h} open />
-      {full && <p className="bad">Your roster is full. Release someone from the Roster tab first, or turn them away.</p>}
-      <div className="mact"><button className="btn" onClick={() => dispatch('decline')}>Turn away</button><button className="btn primary" disabled={full} onClick={() => dispatch('accept')}>Welcome them</button></div>
-    </Shell>
-  );
-}
-
 function Dossier({ m }) {
   const h = hero(m.hid);
   const [fresh] = useState(() => (h ? h.unread || 0 : 0));
@@ -306,7 +290,6 @@ export default function ModalHost() {
     case 'addmember': return <AddMember key={'m' + m.pid} m={m} />;
     case 'relax': return <Relax key={'r' + m.hid} m={m} />;
     case 'report': return <Report key={'rep' + S.day} m={m} />;
-    case 'offer': return <Offer key={'o' + S.offers.length} />;
     case 'dossier': return <Dossier key={'d' + m.hid} m={m} />;
     case 'victory': return <Victory key="v" />;
     case 'retire': return <Retire key="ret" />;

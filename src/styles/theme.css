@@ -581,3 +581,35 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .party-token:hover .plabel { fill: var(--brass-light); }
 .party-token:focus-visible { outline: none; }
 .party-token:focus-visible ellipse { stroke: var(--brass-light); stroke-width: 2; }
+
+/* ---------- map screen fixes ---------- */
+.map-command-center .map { overflow: visible; }
+.map-command-center .mapctl { top: auto; bottom: auto; left: 20px; top: 410px; right: auto; flex-direction: row; z-index: 7; }
+.map-command-center .mapctl button { width: 38px; height: 38px; font-size: 20px; }
+.map-command-center .mapctl button.fit { width: 46px; font-size: 12px; }
+.visitor {
+  position: absolute; left: 20px; bottom: 124px; z-index: 9; width: min(380px, calc(100vw - 24px)); padding: 14px;
+  background: linear-gradient(180deg, rgba(44,29,19,.98), rgba(22,14,9,.98)); border: 1px solid var(--brass-dark); border-radius: 4px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.7), inset 0 0 0 1px rgba(245,197,111,.1); max-height: 60vh; overflow: auto;
+  animation: riseIn 0.35s both;
+}
+.visitor .mact { padding-top: 8px; }
+.toasts { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+.map-button { transition: border-color .15s, background .15s; }
+.map-drawer { overscroll-behavior: contain; }
+
+@media (max-width: 700px) {
+  .map-command-center .mapctl { top: 104px; left: auto; right: 10px; flex-direction: column; }
+  .map-controls {
+    left: 0; right: 0; top: auto; bottom: 44px; flex-direction: row; gap: 4px; padding: 6px 8px; overflow-x: auto;
+    background: linear-gradient(0deg, rgba(14,9,6,.97), rgba(14,9,6,.8)); border-top: 1px solid rgba(225,160,75,.3); scrollbar-width: none;
+  }
+  .map-controls::-webkit-scrollbar { display: none; }
+  .map-button { min-width: 0; flex: 1 0 auto; gap: 6px; padding: 8px 10px; border-left-width: 1px; border-bottom: 3px solid var(--brass-dark); font-size: 13px; }
+  .map-button:hover, .map-button.on { border-left-color: var(--line); border-bottom-color: var(--ember); }
+  .map-caption { display: none; }
+  .map-bottom { bottom: 4px; left: 8px; right: 8px; font-size: 11px; }
+  .map-drawer { top: 100px; bottom: 100px; left: 8px; right: 8px; width: auto; }
+  .visitor { left: 8px; bottom: 100px; }
+  .toasts { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+}

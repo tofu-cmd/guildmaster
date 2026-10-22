@@ -169,7 +169,7 @@ export function MapPanel() {
         <g transform={`translate(${GUILD.x} ${GUILD.y})`}>
           <rect x="-11" y="-8" width="22" height="15" fill="#8a6a3a" /><path d="M-14 -8L0 -22L14 -8z" fill="#b0463a" /><rect x="-3" y="0" width="6" height="7" fill="#2b1d10" />
         </g>
-        <text className="mlabel" x={GUILD.x} y={GUILD.y + 26} textAnchor="middle">{S.guildName || 'Your guild'}</text>
+        <text className="mlabel" x={GUILD.x} y={GUILD.y - 30} textAnchor="middle">{S.guildName || 'Your guild'}</text>
         {S.parties.map((p, i) => {
           const ms = members(p), n = ms.length;
           if (!n || p.mission) return null;
@@ -191,7 +191,7 @@ export function MapPanel() {
             const ms = members(p), n = ms.length;
             if (!n) return null;
             const c = PCOL[i % PCOL.length], sel = ui.selectedParty === p.id;
-            const pos = homeIdx[p.id] !== undefined ? { x: GUILD.x + (homeIdx[p.id] - (hc - 1) / 2) * 76, y: GUILD.y + 62 } : partyPos(p);
+            const pos = homeIdx[p.id] !== undefined ? { x: GUILD.x + (homeIdx[p.id] - (hc - 1) / 2) * 76, y: GUILD.y + 56 } : partyPos(p);
             const state = p.mission ? `on "${p.mission.quest.title}"` : p.recall ? 'returning to the tavern' : atHome(p) ? 'at the tavern' : p.auto ? 'roaming' : 'heading home';
             return (
               <g key={p.id} className={'mrun party-token' + (sel ? ' selected-party' : '')} role="button" tabIndex={0}

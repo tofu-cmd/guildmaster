@@ -5,6 +5,7 @@ import { CLASSES } from '../engine/data.js';
 import { locOf } from '../engine/map.js';
 import { useGame, useTick } from './hooks.js';
 import { Glyph, AnimatedNumber } from './parts.jsx';
+import HeroCard from './HeroCard.jsx';
 import { motionSetting, saveMotion } from './motion.js';
 import { QuestsTab, MapPanel, QuestCard, MissionCard } from './Quests.jsx';
 import { PartiesTab, RosterTab, TavernTab, GuildTab } from './Tabs.jsx';
@@ -181,6 +182,22 @@ function Drawer() {
   return <aside className="map-drawer"><button className="drawer-close" onClick={() => dispatch('drawer', ui.drawer)}>×</button>{content}</aside>;
 }
 
+/** A visitor asking to join. It sits in the corner and never interrupts play. */
+function Visitors() {
+  const o = S.offers[0];
+  if (!o) return null;
+  const h = o.hero, full = S.heroes.length >= rosterCap();
+  return (
+    <aside className="visitor" aria-label="A visitor wants to join">
+      <div className="drawer-kicker">A VISITOR AT THE DOOR{S.offers.length > 1 ? ` (+${S.offers.length - 1} waiting)` : ''}</div>
+      <p className="cinfo" style={{ marginBottom: 8 }}>{h.name} {o.why}</p>
+      <HeroCard h={h} compact />
+      {full && <p className="bad cinfo" style={{ marginTop: 6 }}>Your roster is full. Release someone first, or turn them away.</p>}
+      <div className="mact"><button className="btn small" onClick={() => dispatch('decline')}>Turn away</button><button className="btn small primary" disabled={full} onClick={() => dispatch('accept')}>Welcome them</button></div>
+    </aside>
+  );
+}
+
 function Main() {
   const active = S.parties.filter((p) => p.members.length && !atHome(p));
   return <main className="map-command-center">
@@ -189,17 +206,18 @@ function Main() {
     <header className="map-topbar">
       <div><div className="wordmark">Guildmaster</div><div className="map-subtitle">The Ember Crown · {S.guildName || 'Unnamed Guild'}</div></div>
       <div className="map-stats"><span>DAY <b>{S.day}</b></span><span>GOLD <b>{S.gold}</b></span><span>OUT <b>{active.length}/{S.parties.filter((p) => p.members.length).length}</b></span></div>
-      <div className="map-clock"><button className="btn primary" onClick={() => ui.mode === 'live' ? dispatch('speed', ui.paused ? '1' : '0') : dispatch('endday')}>{ui.mode === 'live' ? (ui.paused ? 'Resume' : 'Pause') : 'Advance day'}</button><button className="btn small" onClick={() => dispatch('mode')}>{ui.mode === 'live' ? 'Live' : 'Manual'}</button></div>
+      <div className="map-clock"><button className="btn primary" onClick={() => ui.mode === 'live' ? dispatch('speed', ui.paused ? '1' : '0') : dispatch('endday')}>{ui.mode === 'live' ? (ui.paused ? 'Resume' : 'Pause') : 'Advance day'}</button><button className="btn small" onClick={() => dispatch('mode')}>{ui.mode === 'live' ? 'Live time' : 'Manual time'}</button></div>
     </header>
     <div className="map-controls" aria-label="Game ledgers and mechanics">
       {[
-        ['quests', 'Quests', S.board.length], ['parties', 'Parties', active.length], ['roster', 'Roster', S.heroes.length],
+        ['quests', 'Quests', S.board.length], ['parties', 'Parties', S.parties.filter((p) => p.members.length).length], ['roster', 'Roster', S.heroes.length],
         ['tavern', 'Tavern'], ['guild', 'Guild'], ['ledger', 'Ledger'],
       ].map(([id, label, count]) => <button key={id} className={'map-button ' + (ui.drawer === id ? 'on' : '')} onClick={() => dispatch('drawer', id)}><span>{label}</span>{count !== undefined && <b>{count}</b>}</button>)}
     </div>
     <div className="map-caption"><b>THE REALM</b><span>Click a quest pin to dispatch. Click any party to give orders.</span></div>
     <div className="map-bottom"><span className="status-dot" /> Idle parties roam and take quests at <b>55%</b> odds or better. Click a party for orders.<button className="btn small" onClick={() => dispatch('help')}>How to play</button><button className="btn small" onClick={() => dispatch('hardcore')}>Death: {S.hardcore ? 'ON' : 'OFF'}</button></div>
     <Drawer />
+    <Visitors />
     <CrisisBar />
   </main>;
 }
