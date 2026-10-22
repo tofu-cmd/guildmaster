@@ -8,7 +8,8 @@ import { Glyph, AnimatedNumber } from './parts.jsx';
 import HeroCard from './HeroCard.jsx';
 import { motionSetting, saveMotion } from './motion.js';
 import { QuestsTab, MapPanel, QuestCard, MissionCard } from './Quests.jsx';
-import { PartiesTab, RosterTab, TavernTab, GuildTab } from './Tabs.jsx';
+import { RosterTab, TavernTab, GuildTab } from './Tabs.jsx';
+import { PartiesDashboard, partyState } from './Parties.jsx';
 import LedgerTab from './Ledger.jsx';
 import Create from './Create.jsx';
 import ModalHost from './Modals.jsx';
@@ -114,14 +115,6 @@ function Status() {
   );
 }
 
-function partyState(p) {
-  if (p.mission) return `On a quest: ${p.mission.quest.title} (day ${p.mission.total - p.mission.daysLeft} of ${p.mission.total})`;
-  if (p.recall) return 'Returning to the tavern';
-  if (atHome(p)) return p.auto ? 'At the tavern, about to head out' : 'At the tavern, waiting for orders';
-  if (!p.auto) return 'Heading back to the tavern';
-  return `Roaming near ${nearestPlace(partyPos(p))}`;
-}
-
 function RouteDrawer() {
   const p = S.parties.find((x) => x.id === ui.selectedParty);
   if (!p) {
@@ -174,12 +167,12 @@ function RouteDrawer() {
 
 function Drawer() {
   if (!ui.drawer) return null;
-  const tab = { parties: PartiesTab, roster: RosterTab, tavern: TavernTab, guild: GuildTab, ledger: LedgerTab }[ui.drawer];
+  const tab = { parties: PartiesDashboard, roster: RosterTab, tavern: TavernTab, guild: GuildTab, ledger: LedgerTab }[ui.drawer];
   const Tab = tab;
   const content = ui.drawer === 'route' ? <RouteDrawer /> : ui.drawer === 'quests'
     ? <><div className="drawer-kicker">QUEST LEDGER</div><h2>Open contracts</h2><div className="stack">{S.board.map((q) => <QuestCard key={q.id} q={q} />)}</div></>
     : Tab ? <Tab /> : null;
-  return <aside className="map-drawer"><button className="drawer-close" onClick={() => dispatch('drawer', ui.drawer)}>×</button>{content}</aside>;
+  return <aside className={'map-drawer' + (ui.drawer === 'parties' ? ' wide' : '')}><button className="drawer-close" onClick={() => dispatch('drawer', ui.drawer)}>×</button>{content}</aside>;
 }
 
 /** A visitor asking to join. It sits in the corner and never interrupts play. */

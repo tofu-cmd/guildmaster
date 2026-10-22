@@ -7,6 +7,7 @@ import {
   calcLegacy, deathChance, reliefOpts,
 } from '../engine/game.js';
 import HeroCard from './HeroCard.jsx';
+import { HeroTile } from './Parties.jsx';
 import { OddsBar } from './parts.jsx';
 
 const FOCUSABLE = 'button:not([disabled]), input, [href], [tabindex]:not([tabindex="-1"])';
@@ -112,7 +113,7 @@ function AddMember({ m }) {
     <Shell>
       <Title>Add to {p.name}</Title>
       {free.length
-        ? <div className="stack">{free.map((h) => <HeroCard key={h.id} h={h} compact extra={<button className="btn small primary" onClick={() => dispatch('addhero', p.id, h.id)}>Add</button>} />)}</div>
+        ? <div className="am-grid">{free.map((h) => <HeroTile key={h.id} h={h} action={<button className="btn small primary" onClick={() => dispatch('addhero', p.id, h.id)}>Add</button>} />)}</div>
         : <div className="empty">Every hero is already in a party. Hire someone in the Tavern or remove a hero from another party.</div>}
       <div className="mact"><button className="btn" onClick={() => dispatch('close')}>Done</button></div>
     </Shell>

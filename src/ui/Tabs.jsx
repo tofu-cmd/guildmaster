@@ -2,39 +2,6 @@ import { STATS, SS, CLASSES, TIERS, BLD, BOSSES, RANKS, BOSS_RANK } from '../eng
 import { S, M, ui, dispatch, members, party, stat, status, unavailable, rosterCap, efx, era, bl, atHome } from '../engine/game.js';
 import HeroCard from './HeroCard.jsx';
 
-export function PartyCard({ p }) {
-  const ms = members(p), busy = !atHome(p), inj = ms.some(unavailable);
-  const state = p.mission ? <span className="pill warn">{p.mission.quest.title} · {p.mission.daysLeft}d left</span>
-    : busy ? <span className="pill warn">{p.recall ? 'Returning to the tavern' : 'Roaming'}</span>
-    : !ms.length ? <span className="pill">Empty</span>
-    : inj ? <span className="pill bad">Hero unavailable</span>
-    : <span className="pill good">Ready</span>;
-  return (
-    <section className="squad">
-      <div className="phead"><h3>{p.name}</h3>{state}</div>
-      {ms.length > 0 && <div className="hfoot"><button className="btn small" onClick={() => dispatch('selectparty', p.id)}>Orders on the map</button>{busy && <span className="cinfo">Recall the party to the tavern to change its heroes.</span>}</div>}
-      <div className="stack">
-        {Array.from({ length: 4 }, (_, i) => {
-          const h = ms[i];
-          if (h) return <HeroCard key={h.id} h={h} compact extra={busy ? null : <button className="btn small" onClick={() => dispatch('remove', h.id)}>Remove</button>} />;
-          return busy ? null : <button key={'s' + i} className="slot-add" onClick={() => dispatch('addslot', p.id)}>+ Add a hero</button>;
-        })}
-      </div>
-      <div className="ptotals">{STATS.map((s) => <span key={s}><b>{ms.reduce((a, h) => a + stat(h, s), 0)}</b>{SS[s]}</span>)}</div>
-      {ms.length > 0 && !ms.some((h) => h.cls === 'cleric') && <div className="cinfo">No cleric: injuries and deaths are twice as likely if a quest fails.</div>}
-    </section>
-  );
-}
-
-export function PartiesTab() {
-  return (
-    <>
-      <div className="sect"><h2>Your parties</h2><span className="cinfo">Up to 4 heroes each. Mix classes for better odds.</span></div>
-      <div className="grid">{S.parties.map((p) => <PartyCard key={p.id} p={p} />)}</div>
-    </>
-  );
-}
-
 export function RosterTab() {
   const hs = [...S.heroes].sort((a, b) => b.tier - a.tier || b.level - a.level);
   return (
