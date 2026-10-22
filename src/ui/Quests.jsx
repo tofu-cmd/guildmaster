@@ -138,7 +138,10 @@ export function MapPanel() {
             } else marks.push(<circle key={k} cx={pt.x} cy={pt.y} r="4" fill="#1b130f" stroke="#bba98d" strokeOpacity=".6" />);
           }
           return (
-            <g key={p.id}>
+            <g key={p.id} className={ui.selectedParty === p.id ? 'selected-party' : ''} role="button" tabIndex={0}
+              aria-label={`${p.name} traveling to ${q.place}. Click to change route.`}
+              onClick={(e) => { e.stopPropagation(); dispatch('selectparty', p.id); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch('selectparty', p.id); } }}>
               <path className="route" d={routeD(r)} fill="none" stroke="#f1dfbd" strokeOpacity=".35" strokeWidth="2" strokeDasharray="5 5" />
               <path d={routeD(r)} pathLength="1" fill="none" stroke={c} strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${pf.toFixed(3)} 2`} />
               {marks}
@@ -218,4 +221,3 @@ export function QuestsTab() {
     </>
   );
 }
-

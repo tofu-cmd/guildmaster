@@ -7,7 +7,7 @@ export const pick=a=>a[Math.floor(Math.random()*a.length)];
 export const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 export let S=null,M=null;
 export const MODEKEY='guildmaster-mode';
-export let ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{},mode:'manual',advancing:false,mv:{x:0,y:0,w:640}};
+export let ui={tab:'quests',drawer:null,selectedParty:null,modal:null,confirm:null,speed:1,paused:false,frac:0,toasts:[],exp:{},mode:'live',advancing:false,mv:{x:0,y:0,w:640}};
 try{if(localStorage.getItem(MODEKEY)==='live')ui.mode='live'}catch(e){}
 export const uid=()=>S.nid++;
 export const perk=id=>(M.perks[id]||0);
@@ -321,8 +321,7 @@ export function tickMission(p,ev){
 export const deathChance=(q,cleric,disaster)=>(.12+.02*q.d)*(cleric?.5:1)*(q.boss?1.5:1)*(disaster?1.5:1);
 export function resolve(p,ev){
   const m=p.mission,q=m.quest,ms=members(p);
-  const ch=clamp(chance(ms,q)+m.mom,.03,.97),roll=Math.random();
-  const ok=roll<ch,great=ok&&roll<ch*.4,pct=Math.round(ch*100);
+  const ch=clamp(chance(ms,q)+m.mom,.03,.97),ok=ch>=.65,great=ok&&ch>=.85,pct=Math.round(ch*100);
   p.mission=null;
   const cleric=ms.some(h=>h.cls==='cleric');
   if(ok){
@@ -364,7 +363,7 @@ export function resolve(p,ev){
       addXp(h,Math.round(q.xp/2),ev);
       addStress(h,ri(14,26)*(q.boss?1.4:1),ms,ev);
       const vig=h.virtue==='vigorous'?.5:1;
-      if(S.hardcore&&Math.random()<deathChance(q,cleric,roll>ch+.3)){
+      if(S.hardcore&&Math.random()<deathChance(q,cleric,ch<.35)){
         kill(h,q);ev.push({k:'death',t:`${h.name} (${TIERS[h.tier].n} ${CLASSES[h.cls].n}, level ${h.level}) died on the quest. They are remembered.`});
       }else if(Math.random()<(.4+.02*q.d)*mit*fxm(h,'injury')*vig){
         h.injured=Math.max(1,ri(2,2+Math.ceil(q.d/2))-bl('infirmary')+efx('heal',0));
@@ -559,7 +558,9 @@ export function setSearch(v){ui.lq=v;ui.llim=60;bump()}
 /* ---------- actions (every control in the UI goes through here) ---------- */
 export function dispatch(act,a,b){
   switch(act){
-    case 'tab':ui.tab=a;ui.modal=null;ui.confirm=null;break;
+    case 'tab':ui.tab=a;ui.drawer=a;ui.modal=null;ui.confirm=null;break;
+    case 'drawer':ui.drawer=ui.drawer===a?null:a;ui.tab=a;break;
+    case 'selectparty':ui.selectedParty=+a;ui.drawer='route';break;
     case 'expand':ui.exp=ui.exp||{};ui.exp[+a]=!ui.exp[+a];break;
     case 'cname':{const s=ui.create.slots[+a];s.name=pick(FIRST);break}
     case 'ccls':{const s=ui.create.slots[+a];s.cls=b;s.base=rollBase(b,s.tier);s.focus=topStat(b);break}
@@ -590,6 +591,17 @@ export function dispatch(act,a,b){
         note(`${p.name} set out on "${q.title}".`);
       }
       ui.modal=null;break;
+    }
+    case 'reroute':{
+      const q=S.board.find(x=>x.id==a),p=party(+b);
+      if(q&&p&&p.mission&&p.members.length&&!members(p).some(unavailable)){
+        const old=p.mission.quest;
+        if(!old.boss&&!old.crisis)S.board.push(old);
+        p.mission={quest:q,daysLeft:q.days,total:q.days,mom:0,used:[],ev:[]};
+        S.board=S.board.filter(x=>x!==q);
+        note(`${p.name} changed course for "${q.title}".`);
+      }
+      break;
     }
     case 'addslot':ui.modal={type:'addmember',pid:+a};break;
     case 'addhero':{
@@ -657,7 +669,7 @@ export function dispatch(act,a,b){
       if(cost!==undefined&&M.legacy>=cost){M.legacy-=cost;M.perks[a]=perk(a)+1;saveMeta()}
       break;
     }
-    case 'begin':{const first=!M.runs.length;ui={tab:'quests',modal:null,confirm:null,speed:1,paused:true,frac:0,toasts:[],exp:{},mode:ui.mode,advancing:false,mv:{x:0,y:0,w:640}};newGame();ui.introAfter=first;break}
+    case 'begin':{const first=!M.runs.length;ui={tab:'quests',drawer:null,selectedParty:null,modal:null,confirm:null,speed:1,paused:ui.mode!=='live',frac:0,toasts:[],exp:{},mode:ui.mode,advancing:false,mv:{x:0,y:0,w:640}};newGame();ui.introAfter=first;break}
   }
 
   if(act!=='release'&&act!=='tab')ui.confirm=null;

@@ -4,7 +4,7 @@ import { S, ui, dispatch, rank, rosterCap, partyCount, era } from '../engine/gam
 import { useGame, useTick } from './hooks.js';
 import { Glyph, AnimatedNumber } from './parts.jsx';
 import { motionSetting, saveMotion } from './motion.js';
-import { QuestsTab } from './Quests.jsx';
+import { QuestsTab, MapPanel, QuestCard, MissionCard } from './Quests.jsx';
 import { PartiesTab, RosterTab, TavernTab, GuildTab } from './Tabs.jsx';
 import LedgerTab from './Ledger.jsx';
 import Create from './Create.jsx';
@@ -111,32 +111,52 @@ function Status() {
   );
 }
 
-function Main() {
-  const tab = { quests: QuestsTab, parties: PartiesTab, roster: RosterTab, tavern: TavernTab, guild: GuildTab, ledger: LedgerTab }[ui.tab] || QuestsTab;
+function RouteDrawer() {
+  const p = S.parties.find((x) => x.id === ui.selectedParty);
+  if (!p) return <div className="drawer-empty">Select a moving party on the map to change its route.</div>;
+  return <>
+    <div className="drawer-kicker">ROUTE CONTROL</div>
+    <h2>{p.name}</h2>
+    <p className="mute">Currently traveling to <b>{p.mission.quest.place}</b>. Choose a new quest destination.</p>
+    <div className="route-list">
+      {S.board.map((q) => <button className="route-option" key={q.id} onClick={() => dispatch('reroute', q.id, p.id)}>
+        <span><b>{q.title}</b><small>{q.place} · Danger {q.d}</small></span><strong>{Math.round(q.d >= 2 ? 65 : 78)}%</strong>
+      </button>)}
+    </div>
+  </>;
+}
+
+function Drawer() {
+  if (!ui.drawer) return null;
+  const tab = { parties: PartiesTab, roster: RosterTab, tavern: TavernTab, guild: GuildTab, ledger: LedgerTab }[ui.drawer];
   const Tab = tab;
-  return (
-    <>
-      <Deck />
-      <main className="wrap">
-        <CrisisBar />
-        <Status />
-        <div key={ui.tab} className="tabpane"><Tab /></div>
-        <section className="news">
-          <div className="sect"><h2>Recent news</h2></div>
-          <ol>{S.log.slice(0, 6).map((l, i) => <li key={i}><span>Day {l.d}</span>{l.t}</li>)}</ol>
-          <button className="btn small" style={{ marginTop: 10 }} onClick={() => dispatch('tab', 'ledger')}>Open the full ledger</button>
-        </section>
-        <div className="foot">
-          <MotionSwitch />
-          <button className="btn small" onClick={() => dispatch('hardcore')}>Heroes can die: {S.hardcore ? 'ON' : 'OFF'}</button>
-          <button className="btn small" onClick={() => dispatch('mode')}>Time: {ui.mode === 'live' ? 'Live' : 'Manual (End Day)'}</button>
-          <button className="btn small" onClick={() => dispatch('help')}>How to play</button>
-          <button className="btn small" onClick={() => dispatch('legacy')}>Legacy</button>
-          <button className="btn small" onClick={() => dispatch('retire')}>Retire run</button>
-        </div>
-      </main>
-    </>
-  );
+  const content = ui.drawer === 'route' ? <RouteDrawer /> : ui.drawer === 'quests'
+    ? <><div className="drawer-kicker">QUEST LEDGER</div><h2>Open contracts</h2><div className="stack">{S.board.map((q) => <QuestCard key={q.id} q={q} />)}</div></>
+    : Tab ? <Tab /> : null;
+  return <aside className="map-drawer"><button className="drawer-close" onClick={() => dispatch('drawer', ui.drawer)}>×</button>{content}</aside>;
+}
+
+function Main() {
+  const active = S.parties.filter((p) => p.mission);
+  return <main className="map-command-center">
+    <MapPanel />
+    <div className="map-vignette" />
+    <header className="map-topbar">
+      <div><div className="wordmark">Guildmaster</div><div className="map-subtitle">The Ember Crown · {S.guildName || 'Unnamed Guild'}</div></div>
+      <div className="map-stats"><span>DAY <b>{S.day}</b></span><span>GOLD <b>{S.gold}</b></span><span>ROAMING <b>{active.length}/{S.parties.length}</b></span></div>
+      <div className="map-clock"><button className="btn primary" onClick={() => ui.mode === 'live' ? dispatch('speed', ui.paused ? '1' : '0') : dispatch('endday')}>{ui.mode === 'live' ? (ui.paused ? 'Resume' : 'Pause') : 'Advance day'}</button><button className="btn small" onClick={() => dispatch('mode')}>{ui.mode === 'live' ? 'Live' : 'Manual'}</button></div>
+    </header>
+    <div className="map-controls" aria-label="Game ledgers and mechanics">
+      {[
+        ['quests', 'Quests', S.board.length], ['parties', 'Parties', active.length], ['roster', 'Roster', S.heroes.length],
+        ['tavern', 'Tavern'], ['guild', 'Guild'], ['ledger', 'Ledger'],
+      ].map(([id, label, count]) => <button key={id} className={'map-button ' + (ui.drawer === id ? 'on' : '')} onClick={() => dispatch('drawer', id)}><span>{label}</span>{count !== undefined && <b>{count}</b>}</button>)}
+    </div>
+    <div className="map-caption"><b>THE REALM</b><span>Click a quest pin to dispatch. Click a moving party to reroute.</span></div>
+    <div className="map-bottom"><span className="status-dot" /> Auto-roaming enabled · quest resolves when odds reach <b>65%</b><button className="btn small" onClick={() => dispatch('help')}>How to play</button><button className="btn small" onClick={() => dispatch('hardcore')}>Death: {S.hardcore ? 'ON' : 'OFF'}</button></div>
+    <Drawer />
+    <CrisisBar />
+  </main>;
 }
 
 function MotionSwitch() {
