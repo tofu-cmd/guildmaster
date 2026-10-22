@@ -71,6 +71,7 @@ export function MapPanel() {
   useTick();
   const boxRef = useRef(null), pts = useRef(new Map()), drag = useRef(null), pinch = useRef(0);
   const v = ui.mv;
+  const moving = ui.advancing || (ui.mode === 'live' && !ui.paused && !ui.modal && !S.over);
 
   useEffect(() => {
     const el = boxRef.current;
@@ -114,7 +115,7 @@ export function MapPanel() {
   const openQuest = (q) => { if (ui.mapMoved) { ui.mapMoved = false; return; } dispatch('assign', q.id); };
 
   return (
-    <div className="mapbox" ref={boxRef} style={{ touchAction: v.w < MAPW ? 'none' : 'pan-y' }}
+    <div className={'mapbox' + (moving ? ' moving' : '')} ref={boxRef} style={{ touchAction: v.w < MAPW ? 'none' : 'pan-y' }}
       onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
       onClickCapture={(e) => { if (ui.mapMoved) { e.stopPropagation(); e.preventDefault(); ui.mapMoved = false; } }}>
       <svg className="map" viewBox={`${v.x} ${v.y} ${v.w} ${(v.w * MAPH) / MAPW}`} role="img" aria-label="Map of the realm">
@@ -128,7 +129,7 @@ export function MapPanel() {
             if (k <= e && ev && !ev.pending) {
               const col = ev.tone === 'good' ? '#86b86b' : ev.tone === 'bad' ? '#dc6a4e' : '#bba98d';
               marks.push(
-                <g key={k}>
+                <g key={k} className="mark">
                   <circle cx={pt.x} cy={pt.y} r="9" fill="#1b130f" stroke={col} strokeWidth="2" />
                   <g dangerouslySetInnerHTML={{ __html: svgAt(icon(ev.icon, 12), (pt.x - 6).toFixed(1), (pt.y - 6).toFixed(1)) }} />
                   <title>{ev.t}</title>
@@ -138,9 +139,10 @@ export function MapPanel() {
           }
           return (
             <g key={p.id}>
-              <path d={routeD(r)} fill="none" stroke="#f1dfbd" strokeOpacity=".35" strokeWidth="2" strokeDasharray="5 5" />
+              <path className="route" d={routeD(r)} fill="none" stroke="#f1dfbd" strokeOpacity=".35" strokeWidth="2" strokeDasharray="5 5" />
               <path d={routeD(r)} pathLength="1" fill="none" stroke={c} strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${pf.toFixed(3)} 2`} />
               {marks}
+              <circle className="ping" cx={r.L.x} cy={r.L.y} r="14" fill="none" stroke={c} strokeWidth="2" />
               <circle cx={r.L.x} cy={r.L.y} r="14" fill="#1b130f" stroke={c} strokeWidth="2.5" />
               <g dangerouslySetInnerHTML={{ __html: svgAt(icon('boss', 16), r.L.x - 8, r.L.y - 8) }} />
               <text className="mlabel" x={r.L.x} y={r.L.y + 31} textAnchor="middle">{q.place}</text>
@@ -173,7 +175,7 @@ export function MapPanel() {
           return (
             <g key={p.id} className="mrun" style={{ transform: `translate(${pos.x.toFixed(1)}px,${pos.y.toFixed(1)}px)` }}>
               <ellipse cx="0" cy="3" rx={n * 9 + 4} ry="4.5" fill="#000" opacity=".35" />
-              {ms.map((h, i) => <g key={h.id} dangerouslySetInnerHTML={{ __html: svgAt(sprite(h.cls, h.tier, 18, h.look), (-n * 9 + i * 18).toFixed(0), -20) }} />)}
+              {ms.map((h, i) => <g key={h.id} className="step idle-sprite" dangerouslySetInnerHTML={{ __html: svgAt(sprite(h.cls, h.tier, 18, h.look), (-n * 9 + i * 18).toFixed(0), -20) }} />)}
               <text className="plabel" x="0" y="-25" textAnchor="middle" fill={c}>{p.name}</text>
             </g>
           );

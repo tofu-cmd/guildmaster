@@ -71,7 +71,7 @@ export default function HeroCard({ h, extra, compact, open }) {
     <div className={`hero full t${h.tier}`}>
       <div className="hhead">
         <div className="spr big" title={CLASSES[h.cls].n}>
-          <Sprite h={h} size={44} /><span className="lvl" title="Level">{h.level}</span>
+          <Sprite h={h} size={44} /><span key={h.level} className="lvl fresh" title="Level">{h.level}</span>
         </div>
         <div style={{ minWidth: 0 }}>
           <div className="hname">{h.name}</div>

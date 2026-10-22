@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RT, RANKS, TIERS, TIER_CAP, BOSS_RANK } from '../engine/data.js';
 import { S, ui, dispatch, rank, rosterCap, partyCount, era } from '../engine/game.js';
 import { useGame, useTick } from './hooks.js';
-import { Glyph } from './parts.jsx';
+import { Glyph, AnimatedNumber } from './parts.jsx';
+import { motionSetting, saveMotion } from './motion.js';
 import { QuestsTab } from './Quests.jsx';
 import { PartiesTab, RosterTab, TavernTab, GuildTab } from './Tabs.jsx';
 import LedgerTab from './Ledger.jsx';
@@ -29,8 +30,8 @@ function Deck() {
       <div className="deck-in">
         <div className="command">
           <div className="brand"><div className="wordmark">Guildmaster</div><div className="subtitle">Guild Command · <b>The Ember Crown</b></div></div>
-          <div className="chip"><Glyph name="clock" size={20} /><div><small>Day</small><b>{S.day}</b></div></div>
-          <div className="chip"><Glyph name="coin" size={20} /><div><small>Gold</small><b className={S.gold < 0 ? 'neg' : ''}>{S.gold}</b></div></div>
+          <div className="chip"><Glyph name="clock" size={20} /><div><small>Day</small><b key={S.day} className="tick">{S.day}</b></div></div>
+          <div className="chip"><Glyph name="coin" size={20} /><div><small>Gold</small><AnimatedNumber value={S.gold} className={S.gold < 0 ? 'neg' : ''} /></div></div>
           <div className="ctl">
             {live
               ? (
@@ -40,7 +41,7 @@ function Deck() {
                   ))}
                 </div>
               )
-              : <button className="btn primary" disabled={ui.advancing} onClick={() => dispatch('endday')}>End Day ▸</button>}
+              : <button className={'btn primary' + (!ui.advancing && !ui.modal ? ' idle' : '')} disabled={ui.advancing} onClick={() => dispatch('endday')}>End Day ▸</button>}
             <div className="modeswitch" role="group" aria-label="Time mode">
               <button className={!live ? 'on' : ''} aria-pressed={!live} onClick={() => { if (live) dispatch('mode'); }}>Manual</button>
               <button className={live ? 'on' : ''} aria-pressed={live} onClick={() => { if (!live) dispatch('mode'); }}>Live</button>
@@ -91,7 +92,7 @@ function Status() {
   }
   return (
     <section className="status" aria-label="Guild status">
-      <div className="seal" aria-label={`Rank ${RANKS[r].l}`}>{RANKS[r].l}</div>
+      <div key={r} className="seal fresh" aria-label={`Rank ${RANKS[r].l}`}>{RANKS[r].l}</div>
       <div>
         {S.guildName && <div className="gname">{S.guildName}</div>}
         <div className="rname">{RANKS[r].n}</div>
@@ -119,13 +120,14 @@ function Main() {
       <main className="wrap">
         <CrisisBar />
         <Status />
-        <Tab />
+        <div key={ui.tab} className="tabpane"><Tab /></div>
         <section className="news">
           <div className="sect"><h2>Recent news</h2></div>
           <ol>{S.log.slice(0, 6).map((l, i) => <li key={i}><span>Day {l.d}</span>{l.t}</li>)}</ol>
           <button className="btn small" style={{ marginTop: 10 }} onClick={() => dispatch('tab', 'ledger')}>Open the full ledger</button>
         </section>
         <div className="foot">
+          <MotionSwitch />
           <button className="btn small" onClick={() => dispatch('hardcore')}>Heroes can die: {S.hardcore ? 'ON' : 'OFF'}</button>
           <button className="btn small" onClick={() => dispatch('mode')}>Time: {ui.mode === 'live' ? 'Live' : 'Manual (End Day)'}</button>
           <button className="btn small" onClick={() => dispatch('help')}>How to play</button>
@@ -134,6 +136,27 @@ function Main() {
         </div>
       </main>
     </>
+  );
+}
+
+function MotionSwitch() {
+  const [m, setM] = useState(motionSetting());
+  return (
+    <button className="btn small" aria-pressed={m === 'on'} onClick={() => setM(saveMotion(m === 'on' ? 'off' : 'on'))}>
+      Animations: {m === 'on' ? 'On' : 'Off'}
+    </button>
+  );
+}
+
+/** A few slow embers drifting up behind the interface. */
+function Embers() {
+  const sparks = useMemo(() => Array.from({ length: 16 }, (_, i) => ({
+    left: (i * 37 + 11) % 100, s: 2 + (i % 4), d: 14 + ((i * 7) % 11), w: -((i * 5) % 17), dx: ((i % 2 ? 1 : -1) * (14 + ((i * 3) % 40))), o: 0.35 + (i % 4) * 0.12,
+  })), []);
+  return (
+    <div className="embers" aria-hidden="true">
+      {sparks.map((p, i) => <i key={i} style={{ left: p.left + '%', '--s': p.s + 'px', '--d': p.d + 's', '--w': p.w + 's', '--dx': p.dx + 'px', '--o': p.o }} />)}
+    </div>
   );
 }
 
@@ -150,6 +173,7 @@ export default function App() {
   useEffect(() => { window.scrollTo(0, 0); }, [S.setup]);
   return (
     <>
+      <Embers />
       {S.setup ? <Create /> : <Main />}
       <ModalHost />
       <Toasts />

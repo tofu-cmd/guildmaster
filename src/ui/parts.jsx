@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { sprite, icon } from '../engine/art.js';
 
 export const stressCls = (s) => (s >= 75 ? 'hi' : s >= 50 ? 'mid' : '');
@@ -47,4 +48,29 @@ export function OddsBar({ c }) {
       <b className={k}>{p}%</b>
     </div>
   );
+}
+
+/** A number that counts toward its new value and flashes green (gain) or red (loss). */
+export function AnimatedNumber({ value, className = '' }) {
+  const [shown, setShown] = useState(value);
+  const [flash, setFlash] = useState('');
+  const cur = useRef(value), prev = useRef(value);
+  useEffect(() => {
+    const to = value, from = cur.current;
+    if (prev.current === to) return undefined;
+    setFlash(to > prev.current ? 'up' : 'down');
+    prev.current = to;
+    const off = document.documentElement.dataset.motion === 'off';
+    const clear = setTimeout(() => setFlash(''), 900);
+    if (off) { cur.current = to; setShown(to); return () => clearTimeout(clear); }
+    let raf; const t0 = performance.now(), dur = 650;
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      cur.current = Math.round(from + (to - from) * e); setShown(cur.current);
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => { cancelAnimationFrame(raf); clearTimeout(clear); };
+  }, [value]);
+  return <b className={className + ' ' + flash}>{shown}</b>;
 }
