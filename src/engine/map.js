@@ -1,14 +1,14 @@
-import {PLACE,TOWNS,MAPW,MAPH} from './data.js';
-export const GUILD={x:320,y:222};
+import {PLACE,TOWNS,MAPW,MAPH,WS} from './data.js';
+export const GUILD={x:320*WS,y:222*WS};
 export const PCOL=['#d4aa4f','#5ea6ec','#b97cef','#72c177','#dc6652'];
 export const LOC={};
 export const TOWNLOC={};
 let terrainSeed=7;
 (function(){
-  const rx=[95,145,195,245,290],ry=[60,92,122,150,178];
+  const rx=[95,145,195,245,290].map(v=>v*WS),ry=[60,92,122,150,178].map(v=>v*WS);
   PLACE.forEach((arr,b)=>arr.forEach((n,i)=>{const a=(i*90+b*41+25)*Math.PI/180;LOC[n]={x:Math.round(GUILD.x+rx[b]*Math.cos(a)),y:Math.round(GUILD.y+ry[b]*Math.sin(a))}}));
-  TOWNS.forEach((n,i)=>{const a=(i*60+10)*Math.PI/180;LOC[n]={x:Math.round(GUILD.x+125*Math.cos(a)),y:Math.round(GUILD.y+80*Math.sin(a))}});
-  LOC['the Drowned Throne']={x:560,y:62};
+  TOWNS.forEach((n,i)=>{const a=(i*60+10)*Math.PI/180;LOC[n]={x:Math.round(GUILD.x+125*WS*Math.cos(a)),y:Math.round(GUILD.y+80*WS*Math.sin(a))}});
+  LOC['the Drowned Throne']={x:560*WS,y:62*WS};
 })();
 export const hashStr=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)};
 export const locOf=place=>LOC[place]||TOWNLOC[place]||{x:GUILD.x+60+hashStr(place)%140,y:GUILD.y-60-hashStr(place+'y')%110};

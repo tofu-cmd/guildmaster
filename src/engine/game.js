@@ -1,5 +1,6 @@
 import {STATS,SL,SS,CLASSES,TIERS,RT,RANKS,TIER_CAP,BOSS_RANK,FIRST,EPI,PARTY_NAMES,QTYPES,MON,PLACE,BOSSES,ERAS,QUIRKS,AFFL,VIRT,BLD,PERKS,DECISIONS,BAD_EVENTS,CRAFT,REP,CHAPTERS,repTier,moral,alignTitle,fillStory,storyTrait,KEY,CRISES,TOWNS,CRISIS_DAYS,MAPW,MAPH,MKEY} from './data.js';
 import {pix,CPAL,TCOL,BASE,line,WEAPON,spriteCache,SKINS,CLOTHS,HAIRS,SKIN_N,sprite,ICONS,icon} from './art.js';
+import {WS} from './data.js';
 import {GUILD,PCOL,LOC,hashStr,locOf,route,bez,routeD,svgAt,terrainCache,terrain,applyWorld} from './map.js';
 import {genWorld,randomSeed,KINDS} from './world.js';
 export const rnd=(a,b)=>a+Math.random()*(b-a);
@@ -209,7 +210,7 @@ export function setSeed(seed){
 export const towns=()=>(S.world?S.world.towns:[]);
 export const foundTowns=()=>towns().filter(t=>t.found);
 export const townById=id=>towns().find(t=>t.id===+id);
-const DISCOVER_R=46;
+const DISCOVER_R=46*WS*.75;
 const segDist=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=l?clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/l,0,1):0;return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy)};
 function discover(t,p,ev){
   t.found=true;
@@ -225,7 +226,7 @@ function sweep(p,a,b,ev){
 export const townAt=pos=>foundTowns().find(t=>near(pos,t)<3);
 export function newGame(){
   const seed=randomSeed(),world=genWorld(seed);
-  S={seed,world,v:2,day:1,gold:200+75*perk('purse'),renown:25*perk('fame'),rankSeen:0,heroes:[],parties:[],board:[],tavern:[],offers:[],pending:[],storyQ:[],log:[],fallen:[],
+  S={seed,world,ws:WS,v:2,day:1,gold:200+75*perk('purse'),renown:25*perk('fame'),rankSeen:0,heroes:[],parties:[],board:[],tavern:[],offers:[],pending:[],storyQ:[],log:[],fallen:[],
     stats:{won:0,lost:0,fallen:0},hardcore:true,over:false,nextCrisis:ri(12,18),vic:0,paid:false,nid:1,
     eraId:world.eraId,boss:world.boss,bossSpawned:false,bld:{chapel:perk('chapel'),barracks:0,infirmary:0,training:0}};
   applyWorld(world);
@@ -439,7 +440,7 @@ export function runDecision(p,i,e,ev,me){
   jot(actor,`${m.quest.title}, day ${e}: ${D.title}. ${t}`,'quest');
 }
 /* ---------- parties roam the map on their own ---------- */
-export const ROAM_SPEED=150,AUTO_ODDS=.55;
+export const ROAM_SPEED=Math.round(150*WS*.75),AUTO_ODDS=.55;
 const near=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const atHome=p=>!p.mission&&p.at!=='field';
 const sortBoard=()=>S.board.sort((a,b)=>boardOrder(b)-boardOrder(a)||a.d-b.d);
@@ -463,11 +464,11 @@ function stepToward(p,t){
 }
 function roamPoint(pos){
   for(let i=0;i<8;i++){
-    const a=Math.random()*Math.PI*2,r=ri(70,170);
+    const a=Math.random()*Math.PI*2,r=ri(70*WS,170*WS);
     const x=clamp(pos.x+Math.cos(a)*r,26,MAPW-26),y=clamp(pos.y+Math.sin(a)*r*.7,48,MAPH-30);
-    if(near({x,y},GUILD)>55)return {x,y};
+    if(near({x,y},GUILD)>55*WS)return {x,y};
   }
-  return {x:clamp(pos.x+90,26,MAPW-26),y:pos.y};
+  return {x:clamp(pos.x+90*WS,26,MAPW-26),y:pos.y};
 }
 export function startMission(p,q,how){
   const o=partyPos(p),origin={x:Math.round(o.x*10)/10,y:Math.round(o.y*10)/10};
@@ -588,7 +589,7 @@ export function autoStep(p,ev){
   if(c){startMission(p,c,'auto');return}
   if(!p.dest){
     const unknown=towns().filter(t=>!t.found).sort((a,b)=>near(p.pos,a)-near(p.pos,b))[0];
-    p.dest=unknown&&Math.random()<.55?{x:clamp(unknown.x+ri(-22,22),26,MAPW-26),y:clamp(unknown.y+ri(-22,22),48,MAPH-30)}:roamPoint(p.pos);
+    p.dest=unknown&&Math.random()<.55?{x:clamp(unknown.x+ri(-22*WS,22*WS),26,MAPW-26),y:clamp(unknown.y+ri(-22*WS,22*WS),48,MAPH-30)}:roamPoint(p.pos);
   }
   p.at='field';
   stepToward(p,p.dest);
@@ -892,6 +893,13 @@ export function initGame(){
     if(raw){const d=JSON.parse(raw);if(d&&d.v===2&&Array.isArray(d.heroes)){S=d;loaded=true}}
   }catch(e){}
   if(loaded){
+    if(S.world&&S.world.towns&&!S.ws){
+      /* saves from before the larger realm: stretch every coordinate to match */
+      const sc=o=>{if(o&&typeof o.x==='number'){o.x*=WS;o.y*=WS}};
+      Object.values(S.world.locs||{}).forEach(sc);S.world.towns.forEach(sc);
+      S.parties.forEach(p=>{sc(p.pos);if(p.leg){sc(p.leg.from);sc(p.leg.to)}sc(p.dest);if(p.mission)sc(p.mission.origin)});
+    }
+    S.ws=WS;
     if(!S.world||!S.world.towns){S.seed=S.seed||randomSeed();S.world=genWorld(S.seed)}
     applyWorld(S.world);
     if(S.nextCrisis===undefined)S.nextCrisis=S.day+ri(10,16);

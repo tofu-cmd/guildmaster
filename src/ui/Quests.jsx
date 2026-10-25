@@ -258,7 +258,7 @@ export function MapPanel() {
           <button onClick={() => mapApi.zoom(1 / 1.4)} aria-label="Zoom out">−</button>
           <button className="fit" onClick={() => mapApi.fit()} aria-label="Fit the whole map">Fit</button>
         </div>
-        <div className="maphint">Drag to pan · scroll to zoom · right-drag to rotate</div>
+        <div className="maphint">WASD to move · Q/E to rotate · scroll to zoom</div>
       </SceneGuard>
     </div>
   );

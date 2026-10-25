@@ -1,4 +1,4 @@
-import {PLACE,ERAS,BOSSES,MAPW,MAPH} from './data.js';
+import {PLACE,ERAS,BOSSES,MAPW,MAPH,WS} from './data.js';
 import {GUILD} from './map.js';
 
 /* A world is a pure function of its seed: same seed, same map, towns, era and final boss. */
@@ -24,19 +24,19 @@ const shuf=(r,a)=>{const x=[...a];for(let i=x.length-1;i>0;i--){const j=Math.flo
 
 export function genWorld(seed){
   seed=String(seed||'').trim()||'nameless';
-  const r=seedRng(seed),rx=[95,145,195,245,290],ry=[60,92,122,150,178],locs={};
+  const r=seedRng(seed),rx=[95,145,195,245,290].map(v=>v*WS),ry=[60,92,122,150,178].map(v=>v*WS),locs={};
   PLACE.forEach((arr,b)=>arr.forEach((n,i)=>{
     const a=((i*90+b*41+25)+(r()*34-17))*Math.PI/180,k=1+(r()*.16-.08);
     locs[n]={x:Math.round(Math.min(MAPW-30,Math.max(30,GUILD.x+rx[b]*k*Math.cos(a)))),y:Math.round(Math.min(MAPH-34,Math.max(54,GUILD.y+ry[b]*k*Math.sin(a))))};
   }));
-  locs['the Drowned Throne']={x:Math.round(540+r()*50),y:Math.round(56+r()*22)};
+  locs['the Drowned Throne']={x:Math.round((540+r()*50)*WS),y:Math.round((56+r()*22)*WS)};
   const all=Object.values(locs),pts=[],towns=[];
   const names=shuf(r,PRE.flatMap(p=>SUF.map(s=>p+s))),inns=shuf(r,INNS),used=new Set();
-  for(let i=0;i<7&&names.length;i++){
+  for(let i=0;i<7*WS&&names.length;i++){
     let best=null;
     for(let t=0;t<250&&!best;t++){
       const p={x:Math.round(50+r()*(MAPW-100)),y:Math.round(84+r()*(MAPH-124))};
-      if(near(p,GUILD)<75||all.some(l=>near(p,l)<40)||pts.some(l=>near(p,l)<70))continue;
+      if(near(p,GUILD)<75*WS/1.5||all.some(l=>near(p,l)<40)||pts.some(l=>near(p,l)<70))continue;
       best=p;
     }
     if(!best)break;
@@ -46,7 +46,7 @@ export function genWorld(seed){
     towns.push({id:i+1,name:nm,kind,x:best.x,y:best.y,tavern:inns[i%inns.length],inn:K.inn,relief:K.relief,heal:K.heal,found:false,visits:0});
   }
   if(towns.length){
-    const cand=towns.filter(t=>near(t,GUILD)>=90),first=(cand.length?cand:towns).sort((a,b)=>near(a,GUILD)-near(b,GUILD))[0];
+    const cand=towns.filter(t=>near(t,GUILD)>=90*WS),first=(cand.length?cand:towns).sort((a,b)=>near(a,GUILD)-near(b,GUILD))[0];
     first.found=true;
     if(first.kind==='town'){first.kind='village';Object.assign(first,{inn:KINDS.village.inn,relief:KINDS.village.relief,heal:KINDS.village.heal})}
   }

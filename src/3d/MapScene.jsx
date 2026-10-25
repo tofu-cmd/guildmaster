@@ -15,7 +15,9 @@ import { buildTown, buildGuild, buildRuin, buildThrone, buildPin } from './build
 
 
 const CENTER = new THREE.Vector3((MAPW / 2) * K, 0.4, (MAPH / 2) * K);
-const MIN_D = 7, MAX_D = 46;
+const MIN_D = 7, MAX_D = 100;
+const UP = new THREE.Vector3(0, 1, 0);
+const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 const setCursor = (c) => { document.body.style.cursor = c; };
 const hover = { onPointerOver: (e) => { e.stopPropagation(); setCursor('pointer'); }, onPointerOut: () => setCursor('') };
 const keyAct = (fn) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
@@ -283,19 +285,19 @@ function Routes({ T, act }) {
 
 /* ---------- camera and light ---------- */
 function Rig() {
-  const ctl = useRef(), goal = useRef(null);
+  const ctl = useRef(), goal = useRef(null), keys = useRef(new Set()), fast = useRef(false), tmp = useRef({ f: new THREE.Vector3(), r: new THREE.Vector3(), o: new THREE.Vector3() });
   const { camera, size } = useThree();
   const view = useCallback((close) => {
     const asp = size.width / Math.max(1, size.height), vf = THREE.MathUtils.degToRad(camera.fov), phi = 0.92;
     const target = close ? new THREE.Vector3(GUILD.x * K, 0.4, GUILD.y * K) : CENTER.clone();
-    const d = close ? 17 : THREE.MathUtils.clamp(Math.max((21 / (Math.tan(vf / 2) * asp)) * 0.86, 10 / Math.tan(vf / 2)), 12, MAX_D - 4);
+    const d = close ? (window.innerWidth < 700 ? 18 : 26) : THREE.MathUtils.clamp(Math.max(((MAPW * K) / 2 / (Math.tan(vf / 2) * asp)) * 0.86, (MAPH * K * 0.37) / Math.tan(vf / 2)), 12, MAX_D - 4);
     camera.position.set(target.x, target.y + d * Math.cos(phi), target.z + d * Math.sin(phi));
     ctl.current.target.copy(target);
     ctl.current.update();
   }, [camera, size.width, size.height]);
 
   useLayoutEffect(() => {
-    view(window.innerWidth < 700);
+    view(true);
     mapApi.fit = () => { view(false); };
     mapApi.zoom = (f) => {
       const d = camera.position.distanceTo(ctl.current.target);
@@ -304,9 +306,36 @@ function Rig() {
     // fit once on mount; later resizes keep the player's view
   }, []);
 
-  useFrame(() => {
+  useEffect(() => {
+    const typing = (e) => { const t = e.target; return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable); };
+    const dn = (e) => {
+      const k = e.key.toLowerCase();
+      if (!MOVE_KEYS.has(k) || e.ctrlKey || e.metaKey || e.altKey || typing(e) || ui.modal) return;
+      keys.current.add(k); fast.current = e.shiftKey;
+      if (k.startsWith('arrow')) e.preventDefault();
+    };
+    const up = (e) => { keys.current.delete(e.key.toLowerCase()); fast.current = e.shiftKey; };
+    const clear = () => keys.current.clear();
+    window.addEventListener('keydown', dn); window.addEventListener('keyup', up); window.addEventListener('blur', clear);
+    return () => { window.removeEventListener('keydown', dn); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); };
+  }, []);
+
+  useFrame((_, dt) => {
     const c = ctl.current;
     if (!c) return;
+    const held = keys.current;
+    if (held.size && !ui.modal) {
+      const f = (held.has('w') || held.has('arrowup') ? 1 : 0) - (held.has('s') || held.has('arrowdown') ? 1 : 0);
+      const r = (held.has('d') || held.has('arrowright') ? 1 : 0) - (held.has('a') || held.has('arrowleft') ? 1 : 0);
+      const rot = (held.has('e') ? 1 : 0) - (held.has('q') ? 1 : 0), { f: fw, r: rt, o } = tmp.current, step = Math.min(dt, 0.1);
+      if (f || r) {
+        camera.getWorldDirection(fw); fw.y = 0; fw.normalize(); rt.crossVectors(fw, UP);
+        const sp = (0.8 * camera.position.distanceTo(c.target) + 5) * (fast.current ? 2.2 : 1) * step;
+        o.set(0, 0, 0).addScaledVector(fw, f).addScaledVector(rt, r).normalize().multiplyScalar(sp);
+        camera.position.add(o); c.target.add(o);
+      }
+      if (rot) { o.copy(camera.position).sub(c.target).applyAxisAngle(UP, rot * step * 1.4); camera.position.copy(c.target).add(o); }
+    }
     const t = c.target, cx = THREE.MathUtils.clamp(t.x, 0, MAPW * K), cz = THREE.MathUtils.clamp(t.z, 0, MAPH * K);
     if (cx !== t.x || cz !== t.z) { camera.position.x += cx - t.x; camera.position.z += cz - t.z; t.x = cx; t.z = cz; }
     if (goal.current != null) {
@@ -326,16 +355,28 @@ function Rig() {
 
 function Lights() {
   const sun = useRef();
-  useLayoutEffect(() => { if (sun.current) { sun.current.target.position.copy(CENTER); sun.current.target.updateMatrixWorld(); } }, []);
+  useFrame(({ controls }) => {
+    const s = sun.current, t = controls ? controls.target : CENTER;
+    if (!s) return;
+    s.position.set(t.x - 16, 30, t.z + 14);
+    s.target.position.copy(t);
+    s.target.updateMatrixWorld();
+  });
   return (
     <>
       <hemisphereLight args={['#9fb0d8', '#3b2a1c', 1.05]} />
       <directionalLight ref={sun} position={[CENTER.x - 16, 30, CENTER.z + 14]} intensity={2.9} color="#ffd9a3" castShadow
         shadow-mapSize={[2048, 2048]} shadow-bias={-0.0006} shadow-normalBias={0.05}
-        shadow-camera-left={-34} shadow-camera-right={34} shadow-camera-top={26} shadow-camera-bottom={-26} shadow-camera-near={1} shadow-camera-far={90} />
+        shadow-camera-left={-36} shadow-camera-right={36} shadow-camera-top={30} shadow-camera-bottom={-30} shadow-camera-near={1} shadow-camera-far={90} />
       <directionalLight position={[CENTER.x + 20, 12, CENTER.z - 20]} intensity={0.9} color="#7f8fd0" />
     </>
   );
+}
+
+function Embers() {
+  const g = useRef();
+  useFrame(({ controls }) => { if (g.current && controls) g.current.position.set(controls.target.x, 3.5, controls.target.z); });
+  return <group ref={g}><Sparkles count={130} scale={[44, 6, 30]} size={3.2} speed={0.35} opacity={0.7} color="#ff9a4a" /></group>;
 }
 
 function World() {
@@ -352,7 +393,7 @@ function World() {
   return (
     <>
       <color attach="background" args={['#120c08']} />
-      <fog attach="fog" args={['#150e09', 46, 110]} />
+      <fog attach="fog" args={['#150e09', 80, 210]} />
       <Lights />
       <Ground T={T} />
       <Forest T={T} />
@@ -363,7 +404,7 @@ function World() {
       <Pins T={T} groups={groups} />
       <Routes T={T} act={act} />
       {S.parties.map((p, i) => (members(p).length ? <PartyToken key={p.id} p={p} c={PCOL[i % PCOL.length]} T={T} homeIdx={homeIdx} /> : null))}
-      <Sparkles count={110} scale={[44, 6, 30]} position={[CENTER.x, 3.5, CENTER.z]} size={3.2} speed={0.35} opacity={0.7} color="#ff9a4a" />
+      <Embers />
       <Rig />
       <EffectComposer multisampling={0}>
         <Bloom intensity={0.55} luminanceThreshold={0.85} luminanceSmoothing={0.3} mipmapBlur />
@@ -378,7 +419,7 @@ function World() {
 export default function MapScene() {
   useEffect(() => () => setCursor(''), []);
   return (
-    <Canvas shadows flat dpr={[1, 1.75]} camera={{ fov: 38, near: 0.5, far: 260, position: [20, 20, 30] }}
+    <Canvas shadows flat dpr={[1, 1.75]} camera={{ fov: 38, near: 0.5, far: 420, position: [20, 20, 30] }}
       gl={{ antialias: false, powerPreference: 'high-performance' }} aria-label="3D map of the realm" role="img">
       <World />
     </Canvas>

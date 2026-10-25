@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { MAPW, MAPH } from '../engine/data.js';
+import { MAPW, MAPH, WS } from '../engine/data.js';
 import { GUILD, LOC, TOWNLOC, terrainSeedValue } from '../engine/map.js';
 
 /** Map pixels to world units. The whole realm is about 40 x 27 units across. */
 export const K = 1 / 16;
-export const MARGIN = 150;
+export const MARGIN = 220;
 export const toWorld = (x, y, h = 0) => [x * K, h, y * K];
 
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -46,7 +46,7 @@ export function makeTerrain(world) {
   const seed = terrainSeedValue();
   const { fbm } = noiser(seed), sites = siteList(world), rr = lcg(seed + 11);
   const lakes = [];
-  for (let t = 0; t < 60 && lakes.length < 3; t++) {
+  for (let t = 0; t < 60 * WS && lakes.length < 3 * WS; t++) {
     const x = 60 + rr() * (MAPW - 120), y = 110 + rr() * (MAPH - 150), s = 20 + rr() * 22;
     if (sites.every((p) => Math.hypot(p.x - x, p.y - y) > p.r + s * 1.7)) lakes.push({ x, y, s });
   }
@@ -55,7 +55,7 @@ export function makeTerrain(world) {
   const heightAt = (x, y) => {
     let h = 0.55 + (fbm(x / 150, y / 150) - 0.5) * 1.5 + (fbm(x / 40 + 31, y / 40) - 0.5) * 0.28;
     for (const l of lakes) { const d = Math.hypot(x - l.x, y - l.y) / l.s; h -= Math.exp(-d * d * 1.3) * 1.5; }
-    const north = smooth(120, 14, y);
+    const north = smooth(120 * WS, 14 * WS, y);
     h += north * (0.9 + 3.2 * fbm(x / 62 + 50, y / 62));
     const out = Math.max(0, -x, x - MAPW, y - MAPH - 6, -y);
     h += smooth(0, 110, out) * (2.2 + 2.6 * fbm(x / 70 + 7, y / 70 + 7));
@@ -66,7 +66,7 @@ export function makeTerrain(world) {
     return h;
   };
 
-  const W = MAPW + MARGIN * 2, Hh = MAPH + MARGIN * 2, segX = 150, segY = 100;
+  const W = MAPW + MARGIN * 2, Hh = MAPH + MARGIN * 2, segX = 300, segY = 200;
   const geometry = new THREE.PlaneGeometry(W * K, Hh * K, segX, segY);
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(((MAPW / 2)) * K, 0, (MAPH / 2) * K);
@@ -94,7 +94,7 @@ export function makeTerrain(world) {
   geometry.computeVertexNormals();
 
   const trees = [], tr = lcg(seed + 99), tn = noiser(seed + 3).fbm;
-  for (let t = 0; t < 4200 && trees.length < 640; t++) {
+  for (let t = 0; t < 4200 * WS * WS && trees.length < 640 * WS * WS; t++) {
     const x = -60 + tr() * (MAPW + 120), y = 20 + tr() * (MAPH + 70), h = heightAt(x, y);
     if (h < 0.18 || h > 2.1 || tn(x / 55 + 9, y / 55) < 0.5) continue;
     if (sites.some((p) => Math.hypot(p.x - x, p.y - y) < p.r + 8)) continue;
@@ -102,7 +102,7 @@ export function makeTerrain(world) {
     trees.push({ x, y, h, s: 0.7 + tr() * 0.8, r: tr() * 6.28, v: tr() });
   }
   const rocks = [], rk = lcg(seed + 7);
-  for (let t = 0; t < 900 && rocks.length < 120; t++) {
+  for (let t = 0; t < 900 * WS * WS && rocks.length < 120 * WS * WS; t++) {
     const x = rk() * MAPW, y = 30 + rk() * (MAPH - 30), h = heightAt(x, y);
     if (h < 0.2 || sites.some((p) => Math.hypot(p.x - x, p.y - y) < p.r + 4)) continue;
     rocks.push({ x, y, h, s: 0.3 + rk() * 0.55, r: rk() * 6.28 });

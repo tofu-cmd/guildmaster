@@ -210,7 +210,7 @@ function Main() {
         ['towns', 'Towns', foundTowns().length], ['tavern', 'Tavern'], ['guild', 'Guild'], ['ledger', 'Ledger'],
       ].map(([id, label, count]) => <button key={id} className={'map-button ' + (ui.drawer === id ? 'on' : '')} onClick={() => dispatch('drawer', id)}><span>{label}</span>{count !== undefined && <b>{count}</b>}</button>)}
     </div>
-    <div className="map-caption"><b>THE REALM</b><span>Click a quest pin to dispatch. Click any party to give orders.</span></div>
+    <div className="map-caption"><b>THE REALM</b><span>Click a quest pin to dispatch. Click any party to give orders. WASD moves the camera, Q/E rotates, Shift is faster.</span></div>
     <div className="map-bottom"><span className="status-dot" /> Idle parties roam and take quests at <b>55%</b> odds or better. Click a party for orders.<button className="btn small" onClick={() => dispatch('help')}>How to play</button><button className="btn small" onClick={() => dispatch('hardcore')}>Death: {S.hardcore ? 'ON' : 'OFF'}</button></div>
     <Drawer />
     <Visitors />
