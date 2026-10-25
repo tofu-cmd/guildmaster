@@ -1,10 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { Component, lazy, Suspense, useEffect, useRef } from 'react';
 import { STATS, SL, MAPW, MAPH } from '../engine/data.js';
 import { icon, sprite } from '../engine/art.js';
 import { PCOL, LOC, GUILD, locOf, route, bez, routeD, svgAt, terrain } from '../engine/map.js';
 import { S, ui, dispatch, members, foundTowns, progress, setView, zoomBy, partyPos, atHome } from '../engine/game.js';
 import { useTick } from './hooks.js';
 import { Glyph, Pips, PxIcon, stressCls } from './parts.jsx';
+import { webglAvailable } from '../3d/portrait.js';
+import { mapApi } from '../3d/mapApi.js';
+
+const MapScene = lazy(() => import('../3d/MapScene.jsx'));
+const GL = webglAvailable();
 
 export function QuestCard({ q }) {
   const needs = STATS.filter((s) => q.w[s]).sort((a, b) => q.w[b] - q.w[a]);
@@ -66,8 +71,8 @@ export function MissionCard({ p }) {
   );
 }
 
-/** Bird's-eye map with live party movement, zoom and pan. */
-export function MapPanel() {
+/** Flat SVG map. Used only when WebGL is unavailable or the 3D scene fails. */
+function MapPanel2D() {
   useTick();
   const boxRef = useRef(null), pts = useRef(new Map()), drag = useRef(null), pinch = useRef(0);
   const v = ui.mv;
@@ -229,6 +234,32 @@ export function MapPanel() {
         <button className="fit" onClick={() => dispatch('mz', 'fit')} aria-label="Fit the whole map">Fit</button>
       </div>
       <div className="maphint">Scroll, pinch or drag to explore</div>
+    </div>
+  );
+}
+
+class SceneGuard extends Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() { return this.state.failed ? <MapPanel2D /> : this.props.children; }
+}
+
+/** The realm as a 3D diorama: drag to pan, wheel to zoom, right-drag to orbit. */
+export function MapPanel() {
+  useTick();
+  if (!GL) return <MapPanel2D />;
+  const moving = ui.advancing || (ui.mode === 'live' && !ui.paused && !ui.modal && !S.over);
+  return (
+    <div className={'mapbox mapbox3d' + (moving ? ' moving' : '')}>
+      <SceneGuard>
+        <Suspense fallback={<div className="mapload">Raising the realm…</div>}><MapScene /></Suspense>
+        <div className="mapctl">
+          <button onClick={() => mapApi.zoom(1.4)} aria-label="Zoom in">+</button>
+          <button onClick={() => mapApi.zoom(1 / 1.4)} aria-label="Zoom out">−</button>
+          <button className="fit" onClick={() => mapApi.fit()} aria-label="Fit the whole map">Fit</button>
+        </div>
+        <div className="maphint">Drag to pan · scroll to zoom · right-drag to rotate</div>
+      </SceneGuard>
     </div>
   );
 }

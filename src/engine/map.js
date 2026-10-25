@@ -20,6 +20,7 @@ export const bez=(r,t)=>{const u=1-t;return {x:u*u*r.G.x+2*u*t*r.C.x+t*t*r.L.x,y
 export const routeD=r=>`M${r.G.x} ${r.G.y}Q${r.C.x.toFixed(1)} ${r.C.y.toFixed(1)} ${r.L.x} ${r.L.y}`;
 export const svgAt=(svg,x,y)=>svg.replace('<svg class="pix"',`<svg class="pix" x="${x}" y="${y}"`);
 export let terrainCache='';
+export const terrainSeedValue=()=>terrainSeed;
 /** Point the map at a generated world: quest sites, towns and terrain all follow its seed. */
 export function applyWorld(w){
   Object.keys(LOC).forEach(k=>delete LOC[k]);Object.keys(TOWNLOC).forEach(k=>delete TOWNLOC[k]);

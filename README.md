@@ -4,7 +4,7 @@ A dark-fantasy guild management game. You run an adventurers' guild: hire heroes
 send them on quests across a bird's-eye map, manage stress and reputation, answer crises, and
 slay the final boss. Every run earns Legacy points that unlock perks for the next one.
 
-Built with **React 18 + Vite**. The game rules are plain JavaScript modules that know nothing about
+Built with **React 18 + Vite**, with a 3D map and heroes drawn by **three.js** (via react-three-fiber, drei and postprocessing). The game rules are plain JavaScript modules that know nothing about
 React, so the same engine can be tested on its own, moved to TypeScript, or wrapped for desktop
 (Electron/Tauri) and mobile (Capacitor).
 
@@ -35,7 +35,14 @@ src/
     Create.jsx         Founding screen
     Modals.jsx         All dialogs (focus-trapped, Escape closes dismissible ones)
     HeroCard.jsx       Compact and full hero plates
+  3d/                three.js layer, loaded lazily so the engine stays render-agnostic
+    heroModel.js       Low-poly hero builder (7 classes, tiers, looks) and walk cycle
+    portrait.js        Renders hero portraits once through one shared WebGL context, cached as images
+    terrain.js         Seeded heightfield, vertex-coloured ground, tree and rock placement
+    buildings.js       Guild keep, towns, ruins, quest pins, the Drowned Throne
+    MapScene.jsx       The map canvas: lights, routes, party tokens, camera, bloom
   styles/theme.css   The Ember Crown theme (CSS variables at the top)
+  styles/depth.css   3D map overlays, portraits, raised-plate depth pass
 legacy/index.html    The previous single-file version, kept for reference and parity tests
 tests/parity.cjs     Plays the legacy and React builds with the same random seed and compares state
 ```

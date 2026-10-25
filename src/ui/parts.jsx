@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { sprite, icon } from '../engine/art.js';
+import { portrait } from '../3d/portrait.js';
 
 export const stressCls = (s) => (s >= 75 ? 'hi' : s >= 50 ? 'mid' : '');
 export const oddsClass = (c) => (c >= 0.7 ? 'good' : c >= 0.4 ? 'warn' : 'bad');
@@ -8,7 +9,13 @@ export const oddsClass = (c) => (c >= 0.7 ? 'good' : c >= 0.4 ? 'warn' : 'bad');
 export function Px({ html, className = '' }) {
   return <span className={'px ' + className} dangerouslySetInnerHTML={{ __html: html }} />;
 }
-export const Sprite = ({ h, size }) => <Px html={sprite(h.cls, h.tier, size, h.look)} />;
+/** A 3D-rendered portrait; falls back to the pixel sprite when WebGL is missing. */
+export function Sprite({ h, size }) {
+  const url = portrait(h.cls, h.tier, h.look);
+  if (!url) return <Px html={sprite(h.cls, h.tier, size, h.look)} />;
+  const s = Math.round(size * 1.35);
+  return <img className="portrait" src={url} width={s} height={s} alt="" draggable={false} />;
+}
 export const PxIcon = ({ name, size }) => <Px html={icon(name, size)} />;
 
 const PATHS = {

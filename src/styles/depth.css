@@ -1,0 +1,49 @@
+/* 3D map overlays, portraits and the depth pass over the command-deck UI. */
+
+.mapbox3d::after { display: none; }
+.mapbox3d canvas { display: block; outline: none; touch-action: none; }
+.mapbox3d > div:first-child { position: absolute; inset: 0; }
+.mapload { position: absolute; inset: 0; display: grid; place-items: center; color: var(--brass-light); font: 22px var(--display); letter-spacing: .04em; background: radial-gradient(ellipse at center, #2a1a10, #0e0b09); }
+
+.m3d-label { font: 700 13px var(--body); color: var(--text); white-space: nowrap; padding: 1px 8px; border-radius: 10px; background: rgba(14, 9, 6, .55); border: 1px solid transparent; text-shadow: 0 1px 3px #000; user-select: none; }
+button.m3d-label { cursor: pointer; font-family: var(--body); backdrop-filter: blur(3px); }
+button.m3d-label:hover, button.m3d-label:focus-visible { border-color: var(--brass); color: var(--brass-light); background: rgba(40, 24, 12, .85); }
+.m3d-label.guild { font: 400 22px var(--display); color: var(--brass-light); background: linear-gradient(180deg, rgba(40, 20, 10, .85), rgba(14, 9, 6, .75)); border-color: var(--brass-dark); padding: 2px 14px; letter-spacing: .03em; }
+.m3d-label.site { font-size: 11px; font-weight: 500; color: var(--muted); }
+.m3d-label.site.throne { color: #ff8a6a; font: 400 18px var(--display); }
+.m3d-label.dest { color: var(--brass-light); background: rgba(14, 9, 6, .7); border-color: rgba(225, 160, 75, .4); }
+
+.m3d-pin { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; padding: 0; cursor: pointer;
+  font: 700 16px var(--body); color: #fff1d0; background: radial-gradient(circle at 35% 28%, #7a4a1c, #2a1c0e 75%); border: 2px solid #e1a04b;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .7), 0 0 14px rgba(225, 160, 75, .55), inset 0 1px 0 rgba(255, 255, 255, .25); transition: transform .12s; }
+.m3d-pin:hover, .m3d-pin:focus-visible { transform: scale(1.18); }
+.m3d-pin.hot { border-color: #dc6a4e; background: radial-gradient(circle at 35% 28%, #a8421b, #3a130a 75%); box-shadow: 0 3px 8px rgba(0, 0, 0, .7), 0 0 18px rgba(220, 106, 78, .8); animation: pinpulse 1.6s ease-in-out infinite; }
+@keyframes pinpulse { 50% { box-shadow: 0 3px 8px rgba(0, 0, 0, .7), 0 0 28px rgba(255, 120, 80, 1); } }
+
+.m3d-party { cursor: pointer; font: 700 12px var(--body); color: var(--c, #f1dfbd); padding: 2px 10px; border-radius: 10px; background: rgba(14, 9, 6, .72); border: 1px solid var(--c, var(--line)); text-shadow: 0 1px 3px #000; box-shadow: 0 2px 6px rgba(0, 0, 0, .6); white-space: nowrap; }
+.m3d-party:hover, .m3d-party.sel { background: rgba(48, 28, 12, .92); box-shadow: 0 0 12px var(--c, #f5c56f); }
+
+.portrait { display: block; image-rendering: auto; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .65)); margin: -6px -3px -5px; pointer-events: none; max-width: none; }
+.spr { overflow: visible; background: radial-gradient(circle at 50% 78%, rgba(255, 190, 110, .22), transparent 62%), radial-gradient(circle at 50% 30%, #3d2a1d, #130d09); }
+.spr .portrait { transition: transform .25s cubic-bezier(.3, 1.4, .5, 1); }
+.hero:hover .portrait, .ht-spr:hover .portrait { transform: scale(1.12) translateY(-2px); }
+.ht-spr .portrait { margin: -5px -3px -4px; }
+
+/* depth pass: lit bevels and soft shadows so panels read as raised plates */
+.panel, .plate, .contract, .hero.full, .hero.compact { box-shadow: inset 0 1px 0 rgba(255, 214, 150, .1), inset 0 -2px 0 rgba(0, 0, 0, .35), 0 10px 24px rgba(0, 0, 0, .5), 0 2px 4px rgba(0, 0, 0, .5); }
+.contract, .hero.full { transition: transform .22s cubic-bezier(.2, .8, .3, 1), box-shadow .22s; transform-style: preserve-3d; }
+@media (hover: hover) { .contract:hover, .hero.full:hover { transform: perspective(900px) translateY(-4px) rotateX(2.5deg); box-shadow: inset 0 1px 0 rgba(255, 214, 150, .16), 0 18px 34px rgba(0, 0, 0, .6), 0 0 22px rgba(225, 160, 75, .14); } }
+.btn { box-shadow: inset 0 1px 0 rgba(255, 214, 150, .18), 0 3px 0 rgba(0, 0, 0, .55), 0 6px 10px rgba(0, 0, 0, .35); transition: transform .08s, box-shadow .08s, filter .15s; }
+.btn:active:not(:disabled) { transform: translateY(3px); box-shadow: inset 0 1px 0 rgba(255, 214, 150, .18), 0 0 0 rgba(0, 0, 0, .55); }
+.map-topbar, .map-button, .map-drawer { backdrop-filter: blur(8px) saturate(1.2); }
+.map-button { transition: transform .15s, background .15s, border-color .15s; }
+.map-button:hover { transform: translateX(4px); }
+.mapctl button { box-shadow: 0 3px 0 rgba(0, 0, 0, .6), 0 6px 10px rgba(0, 0, 0, .4); backdrop-filter: blur(4px); }
+.mapctl button:active { transform: translateY(2px); box-shadow: none; }
+
+html[data-motion='off'] .contract, html[data-motion='off'] .hero.full, html[data-motion='off'] .portrait { transition: none; }
+html[data-motion='off'] .contract:hover, html[data-motion='off'] .hero.full:hover { transform: none; }
+html[data-motion='off'] .m3d-pin.hot { animation: none; }
+
+.ht-spr { width: 46px; height: 46px; overflow: visible; background: radial-gradient(circle at 50% 80%, rgba(255, 190, 110, .2), transparent 60%), radial-gradient(circle at 50% 30%, #3d2a1d, #130d09); box-shadow: inset 0 0 8px #000, 0 3px 6px rgba(0, 0, 0, .5); }
+.ht-spr .portrait { width: 52px; height: 52px; margin: -8px -3px -4px; }
