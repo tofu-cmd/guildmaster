@@ -124,3 +124,46 @@ export function buildPin(hot) {
   gem.name = 'gem'; gem.castShadow = false;
   return g;
 }
+
+/** Hidden landmarks, shown once a party stumbles on them. */
+export function buildLandmark(kind, seed) {
+  const g = new THREE.Group(), r = rnd(seed);
+  const rune = glow('#7ad7ff', 2.4), flame = glow('#ffb454', 3);
+  part(cyl(0.9, 1.0, 0.05, 12), mat('#4a4338', { roughness: 1 }), 0, 0.01, 0, g).castShadow = false;
+  switch (kind) {
+    case 'obelisk':
+      part(box(0.5, 2.4, 0.5), mat('#3d3a44', { roughness: 0.7 }), 0, 1.2, 0, g);
+      part(pyramid(0.36, 0.5), mat('#3d3a44'), 0, 2.65, 0, g).rotation.y = Math.PI / 4;
+      for (let i = 0; i < 4; i++) part(box(0.08, 0.14, 0.02), rune, 0, 0.7 + i * 0.4, 0.26, g);
+      break;
+    case 'shrine':
+      part(box(0.9, 0.18, 0.6), stone(), 0, 0.12, 0, g);
+      part(box(0.5, 0.4, 0.3), stone(), 0, 0.4, 0, g);
+      for (const s of [-1, 1]) part(cyl(0.07, 0.09, 0.9, 6), stone(), s * 0.5, 0.55, 0, g);
+      part(cone(0.1, 0.28, 6), flame, 0, 0.74, 0, g).castShadow = false;
+      break;
+    case 'camp': {
+      const t = part(pyramid(0.7, 0.8), mat('#8a7a5c'), -0.3, 0.4, 0, g); t.rotation.y = Math.PI / 4;
+      part(box(0.28, 0.24, 0.28), mat('#6b4a2b'), 0.55, 0.12, 0.25, g);
+      part(cone(0.1, 0.22, 5), flame, 0.3, 0.12, -0.35, g).castShadow = false;
+      break;
+    }
+    case 'cave':
+      part(new THREE.DodecahedronGeometry(0.9, 0), mat('#5e5448', { roughness: 1 }), 0, 0.45, 0, g).scale.set(1.3, 0.9, 1);
+      part(box(0.5, 0.55, 0.3), mat('#0c0a0a'), 0, 0.28, 0.82, g);
+      for (let i = 0; i < 4; i++) part(cone(0.07, 0.3 + r() * 0.2, 5), glow('#b57cef', 2.2), 0.45 + i * 0.12, 0.12, 0.5 - i * 0.15, g).castShadow = false;
+      break;
+    case 'tower':
+      part(cyl(0.45, 0.55, 1.5, 8), stone(), 0, 0.75, 0, g);
+      for (let i = 0; i < 4; i++) part(box(0.2, 0.3 + r() * 0.2, 0.16), stone(), Math.cos(i * 1.6) * 0.42, 1.6, Math.sin(i * 1.6) * 0.42, g);
+      part(box(0.3, 0.3, 0.3), stone(), 0.8, 0.15, 0.5, g).rotation.y = 0.6;
+      break;
+    default:
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2;
+        part(sph(0.09, 7, 5), glow(i % 2 ? '#f3e8d0' : '#e86a8a', 1.4), Math.cos(a) * 0.65, 0.1, Math.sin(a) * 0.65, g).scale.y = 0.7;
+      }
+      part(sph(0.07, 6, 5), glow('#9ff0c8', 2.6), 0, 0.5, 0, g).castShadow = false;
+  }
+  return g;
+}

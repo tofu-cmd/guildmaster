@@ -22,6 +22,28 @@ export const KINDS={
 const near=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const shuf=(r,a)=>{const x=[...a];for(let i=x.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[x[i],x[j]]=[x[j],x[i]]}return x};
 
+export const LMK={
+  obelisk:{n:'Obelisk',renown:3,d:'Weathered runes hum faintly. Renown for whoever reads them.'},
+  shrine:{n:'Shrine',calm:20,renown:1,d:'A quiet wayside altar. Calms every nerve in the party.'},
+  camp:{n:'Abandoned Camp',gold:[50,110],d:'Someone left in a hurry and left their coin purse.'},
+  cave:{n:'Crystal Cave',gold:[90,170],d:'Veins of glittering stone, ripe for the taking.'},
+  tower:{n:'Watchtower',gold:[30,60],renown:2,d:'A fallen watchtower with a forgotten cache and a view for miles.'},
+  ring:{n:'Fairy Ring',calm:30,xp:6,d:'A circle of pale mushrooms. The air tastes of rain and old songs.'}
+};
+const LM_ADJ=['Sunken','Whispering','Forgotten','Hollow','Mossy','Cinder','Lost','Silent','Gilded','Broken','Hidden','Ashen'];
+/** Hidden landmarks: each is its own seeded stream so older worlds can be given them too. */
+export function genLandmarks(seed,locs,towns){
+  const r=seedRng(String(seed)+'|landmarks'),kinds=Object.keys(LMK),out=[],all=[...Object.values(locs),...towns];
+  const want=Math.round(8*WS);
+  for(let t=0;t<900&&out.length<want;t++){
+    const p={x:Math.round(40+r()*(MAPW-80)),y:Math.round(70+r()*(MAPH-110))};
+    if(near(p,GUILD)<60*WS||all.some(l=>near(p,l)<55)||out.some(l=>near(p,l)<120))continue;
+    const kind=kinds[out.length%kinds.length];
+    out.push({id:out.length+1,kind,name:`${LM_ADJ[Math.floor(r()*LM_ADJ.length)]} ${LMK[kind].n}`,x:p.x,y:p.y,found:false});
+  }
+  return out;
+}
+
 export function genWorld(seed){
   seed=String(seed||'').trim()||'nameless';
   const r=seedRng(seed),rx=[95,145,195,245,290].map(v=>v*WS),ry=[60,92,122,150,178].map(v=>v*WS),locs={};
@@ -50,5 +72,5 @@ export function genWorld(seed){
     first.found=true;
     if(first.kind==='town'){first.kind='village';Object.assign(first,{inn:KINDS.village.inn,relief:KINDS.village.relief,heal:KINDS.village.heal})}
   }
-  return {seed,eraId:ERAS[Math.floor(r()*ERAS.length)].id,boss:Math.floor(r()*BOSSES.length),locs,towns};
+  return {seed,eraId:ERAS[Math.floor(r()*ERAS.length)].id,boss:Math.floor(r()*BOSSES.length),locs,towns,landmarks:genLandmarks(seed,locs,towns)};
 }

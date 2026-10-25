@@ -193,5 +193,5 @@ export const CRISES=[
 export const TOWNS=['Hollowmere','Ashford','Greywater','Dunmoor','Kettlebrook','Stonewick'];
 export const CRISIS_DAYS=25;
 /** The realm is WS times the size of the original 640x430 map. */
-export const WS=2;
+export const WS=3.5;
 export const MAPW=640*WS,MAPH=430*WS;

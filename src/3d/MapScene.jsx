@@ -6,16 +6,16 @@ import { ToneMappingMode } from 'postprocessing';
 import * as THREE from 'three';
 import { MAPW, MAPH } from '../engine/data.js';
 import { PCOL, GUILD, LOC, locOf, route, bez, hashStr } from '../engine/map.js';
-import { S, ui, dispatch, members, foundTowns, progress, partyPos, atHome } from '../engine/game.js';
+import { S, ui, dispatch, members, foundTowns, landmarks, progress, partyPos, atHome } from '../engine/game.js';
 import { useTick } from '../ui/hooks.js';
 import { K, makeTerrain } from './terrain.js';
 import { buildHero, poseHero } from './heroModel.js';
 import { mapApi } from './mapApi.js';
-import { buildTown, buildGuild, buildRuin, buildThrone, buildPin } from './buildings.js';
+import { buildTown, buildGuild, buildRuin, buildThrone, buildPin, buildLandmark } from './buildings.js';
 
 
 const CENTER = new THREE.Vector3((MAPW / 2) * K, 0.4, (MAPH / 2) * K);
-const MIN_D = 7, MAX_D = 100;
+const MIN_D = 7, MAX_D = 220;
 const UP = new THREE.Vector3(0, 1, 0);
 const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 const setCursor = (c) => { document.body.style.cursor = c; };
@@ -129,6 +129,16 @@ function Site({ name, T, active }) {
       <primitive object={obj} />
       {throne && <pointLight position={[0, 3.3, 0]} color="#ff3b2e" intensity={9} distance={9} decay={2} />}
       {(active || throne) && <Html position={[0, throne ? 4 : 1.2, 0]} center zIndexRange={[5, 0]} pointerEvents="none"><div className={'m3d-label site' + (throne ? ' throne' : '')}>{name}</div></Html>}
+    </group>
+  );
+}
+
+function Landmark({ l, T }) {
+  const obj = useMemo(() => buildLandmark(l.kind, hashStr(l.name)), [l.kind, l.name]);
+  return (
+    <group position={[l.x * K, T.heightAt(l.x, l.y), l.y * K]}>
+      <primitive object={obj} />
+      <Html position={[0, 1.8, 0]} center zIndexRange={[5, 0]} pointerEvents="none"><div className="m3d-label site found">{l.name}</div></Html>
     </group>
   );
 }
@@ -320,9 +330,10 @@ function Rig() {
     return () => { window.removeEventListener('keydown', dn); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); };
   }, []);
 
-  useFrame((_, dt) => {
+  useFrame(({ scene }, dt) => {
     const c = ctl.current;
     if (!c) return;
+    if (scene.fog) { const dd = camera.position.distanceTo(c.target); scene.fog.near = dd * 1.2 + 60; scene.fog.far = dd * 2.8 + 230; }
     const held = keys.current;
     if (held.size && !ui.modal) {
       const f = (held.has('w') || held.has('arrowup') ? 1 : 0) - (held.has('s') || held.has('arrowdown') ? 1 : 0);
@@ -393,7 +404,7 @@ function World() {
   return (
     <>
       <color attach="background" args={['#120c08']} />
-      <fog attach="fog" args={['#150e09', 80, 210]} />
+      <fog attach="fog" args={['#150e09', 80, 260]} />
       <Lights />
       <Ground T={T} />
       <Forest T={T} />
@@ -401,6 +412,7 @@ function World() {
       <Guild T={T} />
       {foundTowns().map((t) => <Town key={t.id} t={t} T={T} />)}
       {Object.keys(LOC).map((n) => <Site key={n} name={n} T={T} active={!!groups[n]} />)}
+      {landmarks().filter((l) => l.found).map((l) => <Landmark key={l.id} l={l} T={T} />)}
       <Pins T={T} groups={groups} />
       <Routes T={T} act={act} />
       {S.parties.map((p, i) => (members(p).length ? <PartyToken key={p.id} p={p} c={PCOL[i % PCOL.length]} T={T} homeIdx={homeIdx} /> : null))}
@@ -419,7 +431,7 @@ function World() {
 export default function MapScene() {
   useEffect(() => () => setCursor(''), []);
   return (
-    <Canvas shadows flat dpr={[1, 1.75]} camera={{ fov: 38, near: 0.5, far: 420, position: [20, 20, 30] }}
+    <Canvas shadows flat dpr={[1, 1.75]} camera={{ fov: 38, near: 0.5, far: 900, position: [20, 20, 30] }}
       gl={{ antialias: false, powerPreference: 'high-performance' }} aria-label="3D map of the realm" role="img">
       <World />
     </Canvas>

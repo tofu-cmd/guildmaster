@@ -38,6 +38,7 @@ export function siteList(world) {
   const sites = [{ x: GUILD.x, y: GUILD.y, r: 42, k: 'guild' }, { x: GUILD.x, y: GUILD.y + 64, r: 34, k: 'yard' }];
   Object.keys(LOC).forEach((n) => sites.push({ x: LOC[n].x, y: LOC[n].y, r: 17, k: 'place', n }));
   Object.keys(TOWNLOC).forEach((n) => sites.push({ x: TOWNLOC[n].x, y: TOWNLOC[n].y, r: 26, k: 'town', n }));
+  if (world && world.landmarks) world.landmarks.forEach((l) => sites.push({ x: l.x, y: l.y, r: 9, k: 'landmark', n: l.name }));
   if (world) world.towns.forEach((t) => { if (!TOWNLOC[t.name]) sites.push({ x: t.x, y: t.y, r: 26, k: 'town', n: t.name }); });
   return sites;
 }
@@ -66,20 +67,20 @@ export function makeTerrain(world) {
     return h;
   };
 
-  const W = MAPW + MARGIN * 2, Hh = MAPH + MARGIN * 2, segX = 300, segY = 200;
+  const W = MAPW + MARGIN * 2, Hh = MAPH + MARGIN * 2, segX = 420, segY = 290;
   const geometry = new THREE.PlaneGeometry(W * K, Hh * K, segX, segY);
   geometry.rotateX(-Math.PI / 2);
   geometry.translate(((MAPW / 2)) * K, 0, (MAPH / 2) * K);
-  const pos = geometry.attributes.position, col = new Float32Array(pos.count * 3);
+  const pos = geometry.attributes.position, col = new Float32Array(pos.count * 3), hs = new Float32Array(pos.count), row = segX + 1;
+  for (let i = 0; i < pos.count; i++) { hs[i] = heightAt(pos.getX(i) / K, pos.getZ(i) / K); pos.setY(i, hs[i]); }
   const C = {
     bed: new THREE.Color('#1d3338'), sand: new THREE.Color('#8f7d55'), grass: new THREE.Color('#566a2e'), grass2: new THREE.Color('#3b4d24'),
     moss: new THREE.Color('#2e3a1f'), rock: new THREE.Color('#6d5e4e'), dark: new THREE.Color('#4b3f35'), snow: new THREE.Color('#eadfc4'),
   };
   const c = new THREE.Color(), jit = noiser(seed + 5).fbm;
   for (let i = 0; i < pos.count; i++) {
-    const px = pos.getX(i) / K, py = pos.getZ(i) / K, h = heightAt(px, py);
-    pos.setY(i, h);
-    const sl = Math.abs(heightAt(px + 5, py) - h) + Math.abs(heightAt(px, py + 5) - h);
+    const px = pos.getX(i) / K, py = pos.getZ(i) / K, h = hs[i];
+    const sl = Math.abs(hs[Math.min(i + 1, pos.count - 1)] - h) + Math.abs(hs[Math.min(i + row, pos.count - 1)] - h);
     const j = jit(px / 18, py / 18);
     c.copy(C.grass).lerp(C.grass2, smooth(0.3, 0.75, j));
     c.lerp(C.moss, smooth(1.0, 1.7, h) * 0.8);
@@ -94,7 +95,7 @@ export function makeTerrain(world) {
   geometry.computeVertexNormals();
 
   const trees = [], tr = lcg(seed + 99), tn = noiser(seed + 3).fbm;
-  for (let t = 0; t < 4200 * WS * WS && trees.length < 640 * WS * WS; t++) {
+  for (let t = 0; t < 3000 * WS * WS && trees.length < 350 * WS * WS; t++) {
     const x = -60 + tr() * (MAPW + 120), y = 20 + tr() * (MAPH + 70), h = heightAt(x, y);
     if (h < 0.18 || h > 2.1 || tn(x / 55 + 9, y / 55) < 0.5) continue;
     if (sites.some((p) => Math.hypot(p.x - x, p.y - y) < p.r + 8)) continue;

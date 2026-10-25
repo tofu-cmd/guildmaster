@@ -2,7 +2,7 @@ import {STATS,SL,SS,CLASSES,TIERS,RT,RANKS,TIER_CAP,BOSS_RANK,FIRST,EPI,PARTY_NA
 import {pix,CPAL,TCOL,BASE,line,WEAPON,spriteCache,SKINS,CLOTHS,HAIRS,SKIN_N,sprite,ICONS,icon} from './art.js';
 import {WS} from './data.js';
 import {GUILD,PCOL,LOC,hashStr,locOf,route,bez,routeD,svgAt,terrainCache,terrain,applyWorld} from './map.js';
-import {genWorld,randomSeed,KINDS} from './world.js';
+import {genWorld,randomSeed,KINDS,LMK,genLandmarks} from './world.js';
 export const rnd=(a,b)=>a+Math.random()*(b-a);
 export const ri=(a,b)=>Math.floor(rnd(a,b+1));
 export const pick=a=>a[Math.floor(Math.random()*a.length)];
@@ -210,7 +210,7 @@ export function setSeed(seed){
 export const towns=()=>(S.world?S.world.towns:[]);
 export const foundTowns=()=>towns().filter(t=>t.found);
 export const townById=id=>towns().find(t=>t.id===+id);
-const DISCOVER_R=46*WS*.75;
+const DISCOVER_R=46*WS*.75,LM_R=26*WS;
 const segDist=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=l?clamp(((p.x-a.x)*dx+(p.y-a.y)*dy)/l,0,1):0;return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy)};
 function discover(t,p,ev){
   t.found=true;
@@ -220,7 +220,20 @@ function discover(t,p,ev){
   if(ms.length)jot(pick(ms),`Came upon ${t.name} while exploring with ${p.name}.`,'moment');
 }
 /** Anyone who walks within sight of an unknown settlement finds it. */
+export const landmarks=()=>(S.world&&S.world.landmarks)||[];
+function discoverLandmark(l,p,ev){
+  l.found=true;
+  const K=LMK[l.kind],ms=members(p),bits=[];
+  const g=K.gold?ri(K.gold[0],K.gold[1]):0;
+  if(g){gold(g,`Found at ${l.name}`);bits.push(`${g} gold`)}
+  if(K.calm){ms.forEach(h=>addStress(h,-K.calm,ms,ev));bits.push(`-${K.calm} stress`)}
+  if(K.xp){ms.forEach(h=>addXp(h,K.xp,ev));bits.push(`${K.xp} XP each`)}
+  if(K.renown){gainRenown(K.renown,ev);bits.push(`${K.renown} renown`)}
+  ev.push({k:'win',t:`${p.name} found ${l.name}! ${K.d}${bits.length?` (${bits.join(', ')})`:''}`});
+  if(ms.length)jot(pick(ms),`Came upon ${l.name} while exploring with ${p.name}.`,'moment');
+}
 function sweep(p,a,b,ev){
+  landmarks().forEach(l=>{if(!l.found&&segDist(l,a,b)<=LM_R)discoverLandmark(l,p,ev)});
   towns().forEach(t=>{if(!t.found&&segDist(t,a,b)<=DISCOVER_R)discover(t,p,ev)});
 }
 export const townAt=pos=>foundTowns().find(t=>near(pos,t)<3);
@@ -893,14 +906,15 @@ export function initGame(){
     if(raw){const d=JSON.parse(raw);if(d&&d.v===2&&Array.isArray(d.heroes)){S=d;loaded=true}}
   }catch(e){}
   if(loaded){
-    if(S.world&&S.world.towns&&!S.ws){
-      /* saves from before the larger realm: stretch every coordinate to match */
-      const sc=o=>{if(o&&typeof o.x==='number'){o.x*=WS;o.y*=WS}};
-      Object.values(S.world.locs||{}).forEach(sc);S.world.towns.forEach(sc);
+    if(S.world&&S.world.towns&&S.ws!==WS){
+      /* saves from a smaller realm: stretch every coordinate to match */
+      const f=WS/(S.ws||1),sc=o=>{if(o&&typeof o.x==='number'){o.x=Math.round(o.x*f);o.y=Math.round(o.y*f)}};
+      Object.values(S.world.locs||{}).forEach(sc);S.world.towns.forEach(sc);(S.world.landmarks||[]).forEach(sc);
       S.parties.forEach(p=>{sc(p.pos);if(p.leg){sc(p.leg.from);sc(p.leg.to)}sc(p.dest);if(p.mission)sc(p.mission.origin)});
     }
     S.ws=WS;
     if(!S.world||!S.world.towns){S.seed=S.seed||randomSeed();S.world=genWorld(S.seed)}
+    if(!S.world.landmarks)S.world.landmarks=genLandmarks(S.seed,S.world.locs,S.world.towns);
     applyWorld(S.world);
     if(S.nextCrisis===undefined)S.nextCrisis=S.day+ri(10,16);
     S.ledger=S.ledger||[];

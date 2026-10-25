@@ -1,5 +1,5 @@
-import { KINDS } from '../engine/world.js';
-import { S, dispatch, towns, foundTowns, townAt, partyPos, members } from '../engine/game.js';
+import { KINDS, LMK } from '../engine/world.js';
+import { S, dispatch, towns, foundTowns, townAt, partyPos, members, landmarks } from '../engine/game.js';
 
 function copySeed() {
   try { navigator.clipboard.writeText(S.seed); } catch (e) { /* clipboard blocked */ }
@@ -44,6 +44,18 @@ export function TownsTab() {
         })}
         {!found.length && <div className="empty">No towns found yet.</div>}
       </div>
+      {(() => {
+        const lm = landmarks(), seen = lm.filter((l) => l.found);
+        return (
+          <>
+            <h3 style={{ marginTop: 18 }}>Hidden landmarks <small className="cinfo">{seen.length} of {lm.length} found</small></h3>
+            <div className="stack">
+              {seen.map((l) => <section className="panel town-card" key={l.id}><div className="tc-head"><h3>{l.name}</h3><span className="pill">{LMK[l.kind].n}</span></div><div className="cinfo">{LMK[l.kind].d}</div></section>)}
+              {!seen.length && <div className="empty">Nothing found yet. Roaming parties stumble on ruins, shrines and caches far from the roads.</div>}
+            </div>
+          </>
+        );
+      })()}
       <p className="cinfo" style={{ marginTop: 12 }}>{unknown > 0 ? `${unknown} more place${unknown > 1 ? 's' : ''} lie undiscovered. Send parties roaming to find them.` : 'You have found every settlement in this world.'}</p>
     </>
   );
